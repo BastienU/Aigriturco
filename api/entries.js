@@ -1,6 +1,6 @@
 import { db } from "./_lib/db.js";
 import { HttpError, handler, cleanText, cleanDate, findRoom, requireMember } from "./_lib/http.js";
-import { MOODS } from "../js/mood.js";
+import { findMood } from "./_lib/moods.js";
 import { notifyNewEntry } from "./_lib/push.js";
 
 const MAX_RANGE_DAYS = 400;
@@ -43,19 +43,20 @@ async function create(req)
 	const member = await requireMember(req, room.id);
 	const day = cleanDate(req.body?.date, "Date");
 	const anecdote = cleanText(req.body?.anecdote, "Anecdote", { max: 2000 });
-	const mood = req.body?.mood;
-	if (!MOODS[mood])
+	const moodKey = req.body?.mood;
+	const mood = await findMood(room.id, moodKey, { onlyApproved: true });
+	if (!mood)
 		throw new HttpError(400, "Humeur inconnue.");
 	// Tolérance d'un jour pour les fuseaux horaires en avance sur le serveur
 	if (Date.parse(day) > Date.now() + 86400000)
 		throw new HttpError(400, "Impossible d'écrire dans le futur.");
 	const [row] = await db()`
 		INSERT INTO entries (room_id, member_id, day, mood, anecdote)
-		VALUES (${room.id}, ${member.id}, ${day}, ${mood}, ${anecdote})
+		VALUES (${room.id}, ${member.id}, ${day}, ${moodKey}, ${anecdote})
 		RETURNING id, member_id, day::text AS day, mood, anecdote, created_at`;
 	try
 	{
-		await notifyNewEntry(room, member, row);
+		await notifyNewEntry(room, member, row, mood);
 	}
 	catch (error)
 	{

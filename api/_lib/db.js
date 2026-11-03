@@ -87,4 +87,19 @@ async function createSchema()
 		created_at timestamptz NOT NULL DEFAULT now(),
 		UNIQUE (member_id, endpoint)
 	)`;
+
+	// v3 : humeurs propres à chaque salon, proposées par les membres et validées par le créateur
+	await sql`CREATE TABLE IF NOT EXISTS room_moods (
+		id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+		room_id uuid NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+		label text NOT NULL,
+		emoji text NOT NULL,
+		color text NOT NULL,
+		valence real NOT NULL,
+		energy real NOT NULL,
+		status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'archived')),
+		proposed_by uuid REFERENCES members(id) ON DELETE SET NULL,
+		created_at timestamptz NOT NULL DEFAULT now()
+	)`;
+	await sql`CREATE UNIQUE INDEX IF NOT EXISTS room_moods_label ON room_moods (room_id, lower(label))`;
 }

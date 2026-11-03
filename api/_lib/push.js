@@ -1,6 +1,5 @@
 import webpush from "web-push";
 import { db } from "./db.js";
-import { MOODS } from "../../js/mood.js";
 
 let configured = false;
 
@@ -19,28 +18,12 @@ function configure()
 	configured = true;
 }
 
-// Envoie une notification « nouvel article » à tous les autres membres abonnés du salon
-export async function notifyNewEntry(room, author, entry)
+// Envoie une notification à une liste d'abonnements et supprime ceux qui n'existent plus
+async function send(subscriptions, message)
 {
-	if (!pushEnabled())
-		return;
-	configure();
-	const subscriptions = await db()`
-		SELECT s.id, s.endpoint, s.p256dh, s.auth
-		FROM push_subscriptions s JOIN members m ON m.id = s.member_id
-		WHERE m.room_id = ${room.id} AND m.id <> ${author.id}`;
 	if (!subscriptions.length)
 		return;
-
-	const mood = MOODS[entry.mood];
-	const snippet = entry.anecdote.length > 120 ? entry.anecdote.slice(0, 117) + "…" : entry.anecdote;
-	const payload = JSON.stringify({
-		title: `${author.pseudo} · ${mood.emoji} ${mood.label}`,
-		body: snippet || `Nouvel article dans ${room.name}`,
-		tag: `salon-${room.token}`,
-		url: `/?salon=${encodeURIComponent(room.token)}`
-	});
-
+	const payload = JSON.stringify(message);
 	const results = await Promise.allSettled(subscriptions.map(sub =>
 		webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload, { TTL: 86400 })
 	));
@@ -53,5 +36,42 @@ export async function notifyNewEntry(room, author, entry)
 	{
 		if (result.status === "rejected" && !expired.includes(subscriptions[i].id))
 			console.warn("Notification non envoyée :", result.reason?.statusCode, result.reason?.body || result.reason?.message);
+	});
+}
+
+// Envoie une notification « nouvel article » à tous les autres membres abonnés du salon
+export async function notifyNewEntry(room, author, entry, mood)
+{
+	if (!pushEnabled())
+		return;
+	configure();
+	const subscriptions = await db()`
+		SELECT s.id, s.endpoint, s.p256dh, s.auth
+		FROM push_subscriptions s JOIN members m ON m.id = s.member_id
+		WHERE m.room_id = ${room.id} AND m.id <> ${author.id}`;
+	const snippet = entry.anecdote.length > 120 ? entry.anecdote.slice(0, 117) + "…" : entry.anecdote;
+	await send(subscriptions, {
+		title: `${author.pseudo} · ${mood.emoji} ${mood.label}`,
+		body: snippet || `Nouvel article dans ${room.name}`,
+		tag: `salon-${room.token}`,
+		url: `/?salon=${encodeURIComponent(room.token)}`
+	});
+}
+
+// Prévient le créateur du salon qu'une nouvelle humeur attend sa validation
+export async function notifyMoodProposal(room, author, mood)
+{
+	if (!pushEnabled())
+		return;
+	configure();
+	const subscriptions = await db()`
+		SELECT s.id, s.endpoint, s.p256dh, s.auth
+		FROM push_subscriptions s JOIN members m ON m.id = s.member_id
+		WHERE m.room_id = ${room.id} AND m.is_owner AND m.id <> ${author.id}`;
+	await send(subscriptions, {
+		title: `${room.name} · nouvelle humeur proposée`,
+		body: `${author.pseudo} propose « ${mood.emoji} ${mood.label} ». Accepte-la ou refuse-la dans l'onglet Humeurs.`,
+		tag: `humeurs-${room.token}`,
+		url: `/?salon=${encodeURIComponent(room.token)}`
 	});
 }

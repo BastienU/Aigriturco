@@ -1,4 +1,5 @@
 import { db } from "./_lib/db.js";
+import { listRoomMoods } from "./_lib/moods.js";
 import { handler, randomToken, hashCode, createMemberKey, cleanText, cleanDate, findRoom, findMember, requireOwner, assertOpen } from "./_lib/http.js";
 
 // Liste les membres d'un salon avec leur nombre d'articles
@@ -16,7 +17,8 @@ async function roomPayload(room, member)
 	return {
 		room: { token: room.token, name: room.name, expiresAt: room.expires_at },
 		members: await listMembers(room.id),
-		me: member ? { id: member.id, pseudo: member.pseudo, isOwner: member.is_owner, hasCode: Boolean(member.has_code) } : null
+		me: member ? { id: member.id, pseudo: member.pseudo, isOwner: member.is_owner, hasCode: Boolean(member.has_code) } : null,
+		moods: member ? await listRoomMoods(room.id) : []
 	};
 }
 
