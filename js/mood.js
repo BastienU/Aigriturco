@@ -7,7 +7,10 @@ export const MOODS = {
 	fatigue: { label: "Fatigué", emoji: "😴", color: "#7d8bd1", valence: -1, energy: -2 },
 	triste: { label: "Triste", emoji: "😢", color: "#4f86e8", valence: -2, energy: -1 },
 	stresse: { label: "Stressé", emoji: "😰", color: "#a970d6", valence: -1, energy: 2 },
-	colere: { label: "En colère", emoji: "😠", color: "#e0484f", valence: -2, energy: 2 }
+	colere: { label: "En colère", emoji: "😠", color: "#e0484f", valence: -2, energy: 2 },
+	malade: { label: "Malade", emoji: "🤒", color: "#8fae3c", valence: -1, energy: -1 },
+	pensif: { label: "Pensif", emoji: "🤔", color: "#b8916a", valence: 0, energy: -1 },
+	choque: { label: "Choqué", emoji: "😱", color: "#e0699b", valence: 0, energy: 2 }
 };
 
 // Petit lexique de racines de mots (sans accents) qui influencent l'analyse des anecdotes
@@ -17,7 +20,10 @@ const LEXICON = [
 	[["sport", "courir", "couru", "danse", "rando", "velo", "muscu", "match"], 1, 2],
 	[["calme", "repos", "detend", "zen", "tranquil", "paisible", "lecture", "balade", "promen", "plage", "soleil", "nature", "vacance", "sieste", "cocooning"], 1, -1],
 	[["ami", "famille", "copain", "copine", "bisou", "calin"], 1, 0],
-	[["fatigu", "epuis", "creve", "insomni", "malade", "migraine", "lassitude", "flemme"], -1, -2],
+	[["fatigu", "epuis", "creve", "insomni", "lassitude", "flemme"], -1, -2],
+	[["malade", "migraine", "fievre", "grippe", "rhume", "nausee", "gastro", "toux", "tousse", "covid", "angine", "medecin", "docteur", "urgences"], -1, -1],
+	[["pense", "reflechi", "reflexion", "question", "doute", "hesit", "medit", "philosoph", "songe", "reveri"], 0, -1],
+	[["choqu", "incroyable", "hallucin", "surpri", "dingue", "abasourdi", "stupef", "inattendu", "accident"], 0, 2],
 	[["trist", "pleur", "seul", "solitude", "manque", "deprim", "decu", "deception", "nostalg", "perdu", "rupture", "deuil"], -2, -1],
 	[["stress", "angoiss", "peur", "inquiet", "anxi", "examen", "partiel", "deadline", "retard", "pression", "urgence", "oral", "entretien"], -1, 2],
 	[["colere", "enerv", "agac", "dispute", "rage", "marre", "injust", "frustr", "insupport", "deteste", "embrouille"], -2, 2]

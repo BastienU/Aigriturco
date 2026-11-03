@@ -40,7 +40,7 @@ export const PHOTOS = [
 ];
 ```
 
-- `moods` : une ou plusieurs humeurs parmi `joyeux`, `excite`, `serein`, `neutre`, `fatigue`, `triste`, `stresse`, `colere` ;
+- `moods` : une ou plusieurs humeurs parmi `joyeux`, `excite`, `serein`, `neutre`, `fatigue`, `triste`, `stresse`, `colere`, `malade`, `pensif`, `choque` ;
 - `tags` (facultatif) : mots-clés recherchés dans les anecdotes.
 
 Une faute de frappe dans une humeur est signalée dans la console du navigateur (F12).
