@@ -1,6 +1,6 @@
 import { request } from "./api.js";
 import * as session from "./session.js";
-import { MOODS, analyzeDay, pickPhoto, VALENCE_LEVELS, ENERGY_LEVELS, isSingleEmoji, defaultMoodColor } from "./mood.js";
+import { MOODS, analyzeRoomDay, pickPhoto, VALENCE_LEVELS, ENERGY_LEVELS, isSingleEmoji, defaultMoodColor } from "./mood.js";
 import { PHOTOS } from "./photos.js";
 
 const POLL_DELAY = 20000;
@@ -24,7 +24,8 @@ const state = {
 	customMoods: [],
 	allMoods: MOODS,
 	activeMoods: MOODS,
-	colorTouched: false
+	colorTouched: false,
+	filterMember: null
 };
 
 const EMOJI_SUGGESTIONS = ["🥳", "😍", "🥰", "🤗", "😎", "🤪", "😇", "🥲", "😤", "😩", "🥺", "😬", "🙃", "🤯", "😶", "🫠", "🤓", "😋", "🤢", "🥶", "🥵", "💪", "🎉", "☀️"];
@@ -227,10 +228,16 @@ function buildMoods()
 		renderMoodsTab();
 }
 
-// Analyse une liste d'articles avec les humeurs du salon
-function analyze(entries)
+// Analyse l'ambiance du salon (une voix par membre)
+function analyzeRoom(entries)
 {
-	return analyzeDay(entries, state.allMoods, state.activeMoods);
+	return analyzeRoomDay(entries, state.allMoods, state.activeMoods);
+}
+
+// Formate un nombre à la française avec au plus deux décimales
+function formatNumber(value)
+{
+	return value.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
 }
 
 // Charge les articles du salon (30 derniers jours, ou plus si on regarde une date ancienne)
@@ -313,10 +320,29 @@ function renderDay()
 	$("#next-day").disabled = state.date >= todayStr();
 	$("#today-btn").hidden = state.date === todayStr();
 	$("#day-title").textContent = formatLongDate(state.date);
+	if (state.filterMember && !entries.some(entry => entry.memberId === state.filterMember))
+		state.filterMember = null;
+	const room = analyzeRoom(entries);
 	renderEntries(entries);
-	renderMembersDay(entries);
-	renderHighlight(entries);
+	renderMembersDay(room);
+	renderHighlight(room);
 	renderHistory();
+}
+
+// Affiche uniquement les articles d'un membre (ou tous si on reclique sur le même)
+function setFilter(memberId)
+{
+	state.filterMember = state.filterMember === memberId ? null : memberId;
+	renderDay();
+}
+
+// Réaffiche les articles de tout le monde
+function clearFilter()
+{
+	if (!state.filterMember)
+		return;
+	state.filterMember = null;
+	renderDay();
 }
 
 // Affiche les articles de la journée, du plus récent au plus ancien
@@ -326,7 +352,19 @@ function renderEntries(entries)
 	const template = $("#entry-template");
 	container.replaceChildren();
 	$("#no-entry").hidden = entries.length > 0;
-	entries.forEach(entry =>
+
+	const bar = $("#filter-bar");
+	const filtered = entries.filter(entry => !state.filterMember || entry.memberId === state.filterMember);
+	bar.hidden = !state.filterMember;
+	if (state.filterMember)
+	{
+		const pseudo = filtered[0].pseudo;
+		fillAvatar(bar.querySelector(".avatar"), pseudo);
+		bar.querySelector(".filter-name").textContent = pseudo;
+		bar.querySelector(".filter-count").textContent = `${filtered.length} sur ${entries.length}`;
+	}
+
+	filtered.forEach(entry =>
 	{
 		const mood = state.allMoods[entry.mood] || MOODS.neutre;
 		const node = template.content.cloneNode(true);
@@ -340,24 +378,24 @@ function renderEntries(entries)
 		const remove = node.querySelector(".entry-delete");
 		remove.hidden = !(entry.memberId === state.me.id || state.me.isOwner);
 		remove.addEventListener("click", () => removeEntry(entry.id));
+		node.querySelector(".entry").addEventListener("click", event =>
+		{
+			// Pas de filtre si on clique sur la croix ou si on sélectionne du texte
+			if (event.target.closest(".entry-delete") || getSelection().toString())
+				return;
+			setFilter(entry.memberId);
+		});
 		container.append(node);
 	});
 }
 
-// Affiche, pour chaque membre ayant écrit ce jour-là, son humeur et son image
-function renderMembersDay(entries)
+// Affiche, pour chaque membre ayant écrit ce jour-là, son humeur et son image (clic : filtre ses articles)
+function renderMembersDay(room)
 {
 	const container = $("#members-day");
 	const template = $("#member-day-template");
 	container.replaceChildren();
-	const byMember = new Map();
-	entries.forEach(entry =>
-	{
-		if (!byMember.has(entry.memberId))
-			byMember.set(entry.memberId, []);
-		byMember.get(entry.memberId).push(entry);
-	});
-	if (!byMember.size)
+	if (!room)
 		return;
 
 	const title = document.createElement("h3");
@@ -367,38 +405,40 @@ function renderMembersDay(entries)
 	grid.className = "members-day-grid";
 	container.append(title, grid);
 
-	byMember.forEach((memberEntries, memberId) =>
+	room.members.forEach(({ memberId, pseudo, analysis }) =>
 	{
-		const analysis = analyze(memberEntries);
 		const mood = state.allMoods[analysis.mood];
 		const match = pickPhoto(analysis, state.photos, state.date + memberId, state.allMoods);
 		const node = template.content.cloneNode(true);
 		const card = node.querySelector(".member-day");
 		card.style.setProperty("--mood-color", mood.color);
+		card.classList.toggle("is-filtered", state.filterMember === memberId);
+		card.title = `Voir uniquement les articles de ${pseudo}`;
+		card.addEventListener("click", () => setFilter(memberId));
 		const img = node.querySelector("img");
 		if (match)
 			img.src = match.photo.src;
 		else
 			img.remove();
 		card.dataset.emoji = mood.emoji;
-		fillAvatar(node.querySelector(".avatar"), memberEntries[0].pseudo);
-		node.querySelector(".member-day-name").textContent = memberEntries[0].pseudo;
+		fillAvatar(node.querySelector(".avatar"), pseudo);
+		node.querySelector(".member-day-name").textContent = pseudo;
 		node.querySelector(".member-day-mood").textContent = `${mood.emoji} ${mood.label}`;
 		grid.append(node);
 	});
 }
 
 // Affiche l'humeur générale du salon et l'image qui lui correspond le mieux
-function renderHighlight(entries)
+function renderHighlight(analysis)
 {
 	const box = $("#highlight");
-	const analysis = analyze(entries);
 	box.hidden = !analysis;
 	if (!analysis)
 		return;
 
 	const mood = state.allMoods[analysis.mood];
-	const authors = new Set(entries.map(entry => entry.memberId)).size;
+	const authors = analysis.members.length;
+	renderCalculation(analysis);
 	box.style.setProperty("--mood-color", mood.color);
 	$("#hl-mood").textContent = `${mood.emoji} Ambiance plutôt ${mood.label.toLowerCase()}`;
 	$("#hl-confidence").style.width = `${Math.round(analysis.confidence * 100)}%`;
@@ -423,6 +463,41 @@ function renderHighlight(entries)
 	});
 }
 
+// Détaille le calcul de l'ambiance : point de chaque membre, moyenne du salon et humeurs les plus proches
+function renderCalculation(analysis)
+{
+	const point = (valence, energy) => `ressenti ${formatNumber(valence)} · énergie ${formatNumber(energy)}`;
+	const members = $("#calc-members");
+	members.replaceChildren(...analysis.members.map(({ pseudo, analysis: member }) =>
+	{
+		const mood = state.allMoods[member.mood];
+		const item = document.createElement("li");
+		const avatar = document.createElement("span");
+		avatar.className = "avatar";
+		fillAvatar(avatar, pseudo);
+		const text = document.createElement("div");
+		const head = document.createElement("strong");
+		head.textContent = `${pseudo} → ${mood.emoji} ${mood.label}`;
+		const chosen = Object.entries(member.moodCounts).map(([key, n]) => `${state.allMoods[key].emoji}${n > 1 ? ` ×${n}` : ""}`).join(" ");
+		const detail = document.createElement("span");
+		detail.className = "muted small";
+		const words = member.textHits ? ` · ${member.textHits} mot${member.textHits > 1 ? "s" : ""} repéré${member.textHits > 1 ? "s" : ""} dans ses anecdotes` : "";
+		detail.textContent = `${member.count} article${member.count > 1 ? "s" : ""} (${chosen})${words} → ${point(member.valence, member.energy)}`;
+		text.append(head, detail);
+		item.append(avatar, text);
+		return item;
+	}));
+	$("#calc-average").textContent = `Moyenne des ${analysis.members.length} membre${analysis.members.length > 1 ? "s" : ""} : ${point(analysis.valence, analysis.energy)}`;
+	$("#calc-ranking").replaceChildren(...analysis.ranking.slice(0, 3).map((rank, i) =>
+	{
+		const mood = state.allMoods[rank.key];
+		const item = document.createElement("li");
+		const bonus = rank.bonus ? ` − ${formatNumber(rank.bonus)} (humeur d'un membre) = ${formatNumber(rank.score)}` : "";
+		item.textContent = `${i === 0 ? "✅ " : ""}${mood.emoji} ${mood.label} : distance ${formatNumber(rank.distance)}${bonus}`;
+		return item;
+	}));
+}
+
 // Affiche une frise des 30 derniers jours colorée selon l'humeur générale du salon
 function renderHistory()
 {
@@ -439,7 +514,7 @@ function renderHistory()
 	for (let i = 29; i >= 0; i--)
 	{
 		const date = shiftDate(todayStr(), -i);
-		const analysis = analyze(byDate.get(date) || []);
+		const analysis = analyzeRoom(byDate.get(date) || []);
 		const dot = document.createElement("button");
 		dot.className = "history-day";
 		dot.classList.toggle("is-current", date === state.date);
@@ -1051,6 +1126,18 @@ function bindEvents()
 	document.querySelectorAll("[data-tab]").forEach(tab => tab.addEventListener("click", () => showTab(tab.dataset.tab)));
 	document.querySelectorAll("[data-copy]").forEach(button => button.addEventListener("click", () => copyField(button.dataset.copy)));
 	window.addEventListener("popstate", () => location.reload());
+	$("#filter-clear").addEventListener("click", clearFilter);
+	document.addEventListener("click", event =>
+	{
+		// Un clic en dehors des articles et des cartes membres réaffiche tous les articles
+		if (state.filterMember && !event.target.closest(".entry, .member-day, #filter-bar"))
+			clearFilter();
+	});
+	document.addEventListener("keydown", event =>
+	{
+		if (event.key === "Escape")
+			clearFilter();
+	});
 	document.addEventListener("visibilitychange", () =>
 	{
 		if (document.visibilityState === "visible" && state.me)

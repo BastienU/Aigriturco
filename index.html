@@ -123,6 +123,11 @@
 						</form>
 
 						<div id="members-day" class="members-day"></div>
+						<div id="filter-bar" class="filter-bar" hidden>
+							<span class="avatar"></span>
+							<span>Articles de <strong class="filter-name"></strong> <span class="filter-count muted small"></span></span>
+							<button id="filter-clear" class="icon-btn" aria-label="Afficher tous les articles">✕</button>
+						</div>
 						<div id="entries" class="entries"></div>
 						<p id="no-entry" class="muted center">Personne n'a encore écrit ce jour-là. Lance-toi ✍️</p>
 					</div>
@@ -139,6 +144,15 @@
 							<div class="confidence-track"><div id="hl-confidence" class="confidence-fill"></div></div>
 							<p id="hl-confidence-label" class="muted small"></p>
 						</div>
+						<details class="calc">
+							<summary>Comment est calculée l'ambiance ?</summary>
+							<p class="muted small">Chaque humeur est un point : ressenti (de -2 à +2) et énergie (de -2 à +2). On calcule le point de chaque membre (moyenne de ses articles, nuancée par les mots de ses anecdotes), puis la moyenne des membres : chacun compte pour une voix, quel que soit son nombre d'articles.</p>
+							<ul id="calc-members" class="calc-members"></ul>
+							<p id="calc-average" class="calc-average"></p>
+							<p class="muted small">Humeurs les plus proches de ce point (les humeurs retenues pour un membre ont un petit avantage) :</p>
+							<ol id="calc-ranking" class="calc-ranking"></ol>
+							<p class="muted small">« Neutre » n'est retenu que si au moins la moitié des membres l'a choisi.</p>
+						</details>
 					</aside>
 				</div>
 			</section>
