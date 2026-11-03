@@ -1,0 +1,16 @@
+{
+	"name": "Humeur du jour",
+	"short_name": "Humeur",
+	"description": "Le journal d'humeur de ton groupe.",
+	"lang": "fr",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#f7f3ec",
+	"theme_color": "#c8643b",
+	"icons": [
+		{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+		{ "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+		{ "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+	]
+}
