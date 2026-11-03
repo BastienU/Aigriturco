@@ -690,6 +690,11 @@ function onSubmitEntry(event)
 	event.preventDefault();
 	submitWith(event.target, async () =>
 	{
+		const hasText = $("#anecdote").value.trim().length > 0;
+		if (!hasText && !state.selectedMood)
+			throw new Error("Écris une anecdote et choisis une humeur avant de publier.");
+		if (!hasText)
+			throw new Error("Écris une anecdote avant de publier.");
 		if (!state.selectedMood)
 			throw new Error("Choisis une humeur avant de publier.");
 		await request("POST", "entries", { memberKey: state.memberKey, body: {

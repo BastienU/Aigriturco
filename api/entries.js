@@ -43,6 +43,8 @@ async function create(req)
 	const member = await requireMember(req, room.id);
 	const day = cleanDate(req.body?.date, "Date");
 	const anecdote = cleanText(req.body?.anecdote, "Anecdote", { max: 2000 });
+	if (!anecdote)
+		throw new HttpError(400, "Écris une anecdote avant de publier.");
 	const moodKey = req.body?.mood;
 	const mood = await findMood(room.id, moodKey, { onlyApproved: true });
 	if (!mood)
