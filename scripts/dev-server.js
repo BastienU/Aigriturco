@@ -5,11 +5,12 @@ import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import webpush from "web-push";
 import { setDb } from "../api/_lib/db.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
-const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml", ".gif": "image/gif" };
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml", ".gif": "image/gif", ".webmanifest": "application/manifest+json" };
 
 const pg = new PGlite(process.env.DEV_DB === "memory" ? undefined : join(ROOT, ".data"));
 
@@ -21,6 +22,14 @@ function sql(strings, ...values)
 }
 
 setDb(sql);
+
+// En local, sans clés VAPID définies, on en génère des temporaires pour tester les notifications
+if (!process.env.VAPID_PUBLIC_KEY)
+{
+	const keys = webpush.generateVAPIDKeys();
+	process.env.VAPID_PUBLIC_KEY = keys.publicKey;
+	process.env.VAPID_PRIVATE_KEY = keys.privateKey;
+}
 
 // Ajoute à req/res les helpers fournis par Vercel (req.query, req.body, res.status, res.json)
 async function withHelpers(req, res, url)

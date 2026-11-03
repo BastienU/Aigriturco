@@ -1,6 +1,7 @@
 import { db } from "./_lib/db.js";
 import { HttpError, handler, cleanText, cleanDate, findRoom, requireMember } from "./_lib/http.js";
 import { MOODS } from "../js/mood.js";
+import { notifyNewEntry } from "./_lib/push.js";
 
 const MAX_RANGE_DAYS = 400;
 
@@ -52,6 +53,15 @@ async function create(req)
 		INSERT INTO entries (room_id, member_id, day, mood, anecdote)
 		VALUES (${room.id}, ${member.id}, ${day}, ${mood}, ${anecdote})
 		RETURNING id, member_id, day::text AS day, mood, anecdote, created_at`;
+	try
+	{
+		await notifyNewEntry(room, member, row);
+	}
+	catch (error)
+	{
+		// Une notification ratée ne doit pas empêcher la publication
+		console.error("Notifications :", error);
+	}
 	return { status: 201, body: { entry: toEntry({ ...row, pseudo: member.pseudo }) } };
 }
 
