@@ -4,6 +4,7 @@ Journal d'humeur partagé : on crée un **salon**, on partage son lien, et chaqu
 
 ## Fonctionnement
 
+- **Lancement** : le site rouvre directement le dernier salon visité ; le logo mène à l'accueil (`/?accueil`).
 - **Accueil** : créer un salon (nom, pseudo, date de fermeture facultative), retrouver « Mes salons », ou ouvrir un lien reçu.
 - **Rejoindre** : la personne qui ouvre le lien choisit un pseudo (unique dans le salon) et un **code secret**. Sur un autre appareil (ou si le navigateur a tout oublié), « J'ai déjà un pseudo » + le code permettent de reprendre son compte. Après 5 codes faux, le pseudo est bloqué 15 minutes.
 - **Journal** : date du jour par défaut, articles de tous les membres avec pseudo et heure, « Chacun sa journée » (humeur et image par membre), image du salon et frise des 30 derniers jours. Rafraîchissement automatique toutes les 20 s tant que la page est visible.
