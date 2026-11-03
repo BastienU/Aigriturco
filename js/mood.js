@@ -65,12 +65,12 @@ function analyzeText(text)
 	};
 }
 
-// Renvoie la clé de l'humeur la plus proche d'un point (valence, énergie)
-function nearestMood(valence, energy)
+// Renvoie la clé de l'humeur la plus proche d'un point (valence, énergie) parmi les candidates
+function nearestMood(valence, energy, candidates)
 {
 	let best = "neutre";
 	let bestDistance = Infinity;
-	for (const [key, mood] of Object.entries(MOODS))
+	for (const [key, mood] of Object.entries(candidates))
 	{
 		const distance = Math.hypot(mood.valence - valence, mood.energy - energy);
 		if (distance < bestDistance)
@@ -82,10 +82,11 @@ function nearestMood(valence, energy)
 	return best;
 }
 
-// Calcule l'état d'esprit global d'une journée à partir de toutes ses entrées
-export function analyzeDay(entries)
+// Calcule l'état d'esprit global d'une journée à partir de toutes ses entrées.
+// moods : toutes les humeurs connues (base + celles du salon) ; candidates : celles qui peuvent être choisies comme humeur du jour
+export function analyzeDay(entries, moods = MOODS, candidates = moods)
 {
-	const valid = entries.filter(entry => MOODS[entry.mood]);
+	const valid = entries.filter(entry => moods[entry.mood]);
 	if (!valid.length)
 		return null;
 	let valence = 0;
@@ -93,8 +94,8 @@ export function analyzeDay(entries)
 	const moodCounts = {};
 	valid.forEach(entry =>
 	{
-		valence += MOODS[entry.mood].valence;
-		energy += MOODS[entry.mood].energy;
+		valence += moods[entry.mood].valence;
+		energy += moods[entry.mood].energy;
 		moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1;
 	});
 	valence /= valid.length;
@@ -113,7 +114,7 @@ export function analyzeDay(entries)
 	return {
 		valence,
 		energy,
-		mood: nearestMood(valence, energy),
+		mood: nearestMood(valence, energy, candidates),
 		moodCounts,
 		keywords: text.keywords,
 		textHits: text.hits,
@@ -132,7 +133,7 @@ function hash(str)
 }
 
 // Note une photo par rapport à l'analyse de la journée et explique pourquoi
-function scorePhoto(photo, analysis, seed)
+function scorePhoto(photo, analysis, seed, moodLabel)
 {
 	const reasons = [];
 	const moods = (photo.moods || []).filter(key => MOODS[key]);
@@ -155,7 +156,7 @@ function scorePhoto(photo, analysis, seed)
 	let score = (1 - distance / 5.66) * 0.6;
 
 	if (moods.includes(analysis.mood))
-		reasons.push(`Tu l'as associée à l'humeur « ${MOODS[analysis.mood].label} »`);
+		reasons.push(`Associée à l'humeur « ${moodLabel} »`);
 	else if (moods.length && distance < 1.2)
 		reasons.push("Son ambiance est proche de ton humeur");
 
@@ -182,9 +183,44 @@ function scorePhoto(photo, analysis, seed)
 }
 
 // Choisit parmi les photos celle qui correspond le mieux à la journée (seed varie le choix entre deux photos ex æquo)
-export function pickPhoto(analysis, photos, seed)
+export function pickPhoto(analysis, photos, seed, moods = MOODS)
 {
 	if (!analysis || !photos.length)
 		return null;
-	return photos.map(photo => scorePhoto(photo, analysis, seed)).sort((a, b) => b.score - a.score)[0];
+	const label = moods[analysis.mood]?.label || "";
+	return photos.map(photo => scorePhoto(photo, analysis, seed, label)).sort((a, b) => b.score - a.score)[0];
+}
+
+export const VALENCE_LEVELS = [[-2, "Très négative"], [-1, "Plutôt négative"], [0, "Neutre"], [1, "Plutôt positive"], [2, "Très positive"]];
+export const ENERGY_LEVELS = [[-2, "Très calme"], [-1, "Plutôt calme"], [0, "Normale"], [1, "Plutôt agitée"], [2, "Très agitée"]];
+
+// Vérifie qu'une chaîne contient exactement un emoji (y compris les emojis composés 👩‍💻 ou avec couleur de peau)
+export function isSingleEmoji(value)
+{
+	if (typeof value !== "string" || !value || value.length > 32)
+		return false;
+	const graphemes = [...new Intl.Segmenter("fr", { granularity: "grapheme" }).segment(value)];
+	return graphemes.length === 1 && /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(value);
+}
+
+// Couleur proposée par défaut selon la position de l'humeur (tons chauds si positive, froids si négative, plus vive si agitée)
+export function defaultMoodColor(valence, energy)
+{
+	const hue = valence >= 0 ? 160 - valence * 60 : 160 - valence * 32.5;
+	const saturation = 45 + (energy + 2) * 8;
+	return hslToHex((hue + 360) % 360, saturation, 55);
+}
+
+// Convertit une couleur HSL en hexadécimal (#rrggbb)
+function hslToHex(h, s, l)
+{
+	s /= 100;
+	l /= 100;
+	const f = n =>
+	{
+		const k = (n + h / 30) % 12;
+		const c = l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+		return Math.round(c * 255).toString(16).padStart(2, "0");
+	};
+	return `#${f(0)}${f(8)}${f(4)}`;
 }
