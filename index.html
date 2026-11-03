@@ -4,7 +4,7 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Humeur du jour</title>
-	<meta name="description" content="Ton journal d'humeur quotidien, illustré par tes propres photos.">
+	<meta name="description" content="Un journal d'humeur à partager avec tes proches, dans un salon privé accessible par lien.">
 	<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📔</text></svg>">
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,87 +13,188 @@
 </head>
 <body>
 	<header class="topbar">
-		<h1 class="brand">📔 Humeur du jour</h1>
-		<nav class="tabs" role="tablist">
+		<a class="brand" href="/">📔 Humeur du jour</a>
+		<nav id="room-tabs" class="tabs" role="tablist" hidden>
 			<button class="tab is-active" data-tab="journal" role="tab">Journal</button>
-			<button class="tab" data-tab="photos" role="tab">Galerie <span id="photo-count" class="badge">0</span></button>
+			<button class="tab" data-tab="photos" role="tab">Galerie</button>
+			<button class="tab" data-tab="settings" role="tab">Salon</button>
 		</nav>
 	</header>
 
 	<main>
-		<section id="tab-journal" class="panel">
-			<div class="date-bar">
-				<button id="prev-day" class="icon-btn" aria-label="Jour précédent">‹</button>
-				<input id="date-input" type="date" aria-label="Date">
-				<button id="next-day" class="icon-btn" aria-label="Jour suivant">›</button>
-				<button id="today-btn" class="ghost-btn">Aujourd'hui</button>
+		<p id="loading" class="muted center loading">Chargement…</p>
+
+		<!-- Accueil : créer un salon ou retrouver les siens -->
+		<section id="view-home" class="view" hidden>
+			<div class="hero">
+				<h1 class="hero-title">Le journal d'humeur de ton groupe</h1>
+				<p class="muted">Crée un salon, partage le lien avec tes proches : chacun note son humeur et ses petites anecdotes du jour, et le salon s'illustre d'une image qui colle à l'ambiance.</p>
 			</div>
-			<h2 id="day-title" class="day-title"></h2>
-
-			<div id="history" class="history" aria-label="30 derniers jours"></div>
-
-			<div class="layout">
+			<div class="home-grid">
+				<form id="create-form" class="card">
+					<h2 class="section-title">Créer un salon</h2>
+					<label class="field-label" for="room-name">Nom du salon</label>
+					<input id="room-name" class="text-input" maxlength="60" placeholder="Ex : Les copains de la fac" required>
+					<label class="field-label" for="owner-pseudo">Ton pseudo</label>
+					<input id="owner-pseudo" class="text-input" maxlength="30" placeholder="Ex : Bastien" required>
+					<label class="field-label" for="room-expires">Fermer le salon le <span class="muted">(facultatif)</span></label>
+					<input id="room-expires" class="text-input" type="date">
+					<p class="form-error" hidden></p>
+					<button type="submit" class="primary-btn">Créer le salon</button>
+				</form>
 				<div class="column">
-					<form id="entry-form" class="card">
-						<label class="field-label" for="anecdote">Une anecdote, un moment, une pensée…</label>
-						<textarea id="anecdote" rows="4" maxlength="2000" placeholder="Ex : déjeuner au soleil avec Léa, on a beaucoup ri."></textarea>
-						<span class="field-label">Ton humeur</span>
-						<div id="mood-picker" class="mood-picker"></div>
-						<p id="form-error" class="form-error" hidden></p>
-						<button type="submit" class="primary-btn">Enregistrer</button>
+					<div class="card">
+						<h2 class="section-title">Mes salons</h2>
+						<ul id="my-rooms" class="room-list"></ul>
+						<p id="no-room" class="muted">Tu n'as encore rejoint aucun salon sur cet appareil.</p>
+					</div>
+					<form id="link-form" class="card">
+						<h2 class="section-title">J'ai reçu un lien</h2>
+						<input id="link-input" class="text-input" placeholder="Colle le lien du salon ici">
+						<p class="form-error" hidden></p>
+						<button type="submit" class="ghost-btn">Ouvrir</button>
 					</form>
-
-					<div id="entries" class="entries"></div>
-					<p id="no-entry" class="muted center">Aucune entrée pour ce jour. Écris la première ✍️</p>
 				</div>
-
-				<aside id="highlight" class="card highlight" hidden>
-					<p class="eyebrow">L'image de ta journée</p>
-					<img id="hl-photo" class="hl-photo" alt="Photo choisie pour la journée" hidden>
-					<div id="hl-empty" class="hl-empty" hidden>
-						<p>Aucune image disponible pour le moment.</p>
-					</div>
-					<p id="hl-mood" class="hl-mood"></p>
-					<ul id="hl-reasons" class="hl-reasons"></ul>
-					<div class="confidence">
-						<div class="confidence-track"><div id="hl-confidence" class="confidence-fill"></div></div>
-						<p id="hl-confidence-label" class="muted small"></p>
-					</div>
-				</aside>
 			</div>
 		</section>
 
-		<section id="tab-photos" class="panel" hidden>
-			<div class="card">
-				<h2 class="section-title">Les images</h2>
-				<p class="muted">Voici les images parmi lesquelles le site choisit celle de ta journée, avec les humeurs et mots-clés qui leur sont associés.</p>
-			</div>
-			<p id="no-photo" class="muted center">Aucune image déclarée dans <code>js/photos.js</code>.</p>
-			<div id="photo-grid" class="photo-grid"></div>
+		<!-- Rejoindre : choisir un pseudo -->
+		<section id="view-join" class="view" hidden>
+			<form id="join-form" class="card narrow">
+				<p class="eyebrow">Tu as été invité dans le salon</p>
+				<h1 id="join-room-name" class="hero-title"></h1>
+				<p id="join-members" class="muted"></p>
+				<label class="field-label" for="join-pseudo">Choisis ton pseudo</label>
+				<input id="join-pseudo" class="text-input" maxlength="30" required>
+				<p class="form-error" hidden></p>
+				<button type="submit" class="primary-btn">Rejoindre</button>
+			</form>
+		</section>
 
-			<div class="card backup">
-				<h2 class="section-title">Sauvegarde</h2>
-				<p class="muted">Tes entrées restent dans ce navigateur. Exporte-les régulièrement pour ne rien perdre ou pour les transférer sur un autre appareil.</p>
-				<div class="row">
-					<button id="export-btn" class="ghost-btn">Exporter (.json)</button>
-					<label class="ghost-btn">
-						Importer
-						<input id="import-input" type="file" accept="application/json" hidden>
-					</label>
-				</div>
+		<!-- Erreur : salon introuvable ou fermé -->
+		<section id="view-error" class="view" hidden>
+			<div class="card narrow center">
+				<p class="big-emoji">🔒</p>
+				<p id="error-message"></p>
+				<a class="ghost-btn" href="/">Retour à l'accueil</a>
 			</div>
+		</section>
+
+		<!-- Salon -->
+		<section id="view-room" class="view" hidden>
+			<section id="tab-journal" class="panel">
+				<p id="room-title" class="eyebrow room-title"></p>
+				<div class="date-bar">
+					<button id="prev-day" class="icon-btn" aria-label="Jour précédent">‹</button>
+					<input id="date-input" type="date" aria-label="Date">
+					<button id="next-day" class="icon-btn" aria-label="Jour suivant">›</button>
+					<button id="today-btn" class="ghost-btn">Aujourd'hui</button>
+				</div>
+				<h2 id="day-title" class="day-title"></h2>
+
+				<div id="history" class="history" aria-label="30 derniers jours"></div>
+
+				<div class="layout">
+					<div class="column">
+						<form id="entry-form" class="card">
+							<label class="field-label" for="anecdote">Une anecdote, un moment, une pensée…</label>
+							<textarea id="anecdote" rows="4" maxlength="2000" placeholder="Ex : déjeuner au soleil avec Léa, on a beaucoup ri."></textarea>
+							<span class="field-label">Ton humeur</span>
+							<div id="mood-picker" class="mood-picker"></div>
+							<p class="form-error" hidden></p>
+							<button type="submit" class="primary-btn">Publier dans le salon</button>
+						</form>
+
+						<div id="members-day" class="members-day"></div>
+						<div id="entries" class="entries"></div>
+						<p id="no-entry" class="muted center">Personne n'a encore écrit ce jour-là. Lance-toi ✍️</p>
+					</div>
+
+					<aside id="highlight" class="card highlight" hidden>
+						<p class="eyebrow">L'image du salon</p>
+						<img id="hl-photo" class="hl-photo" alt="Image choisie pour la journée du salon" hidden>
+						<div id="hl-empty" class="hl-empty" hidden>
+							<p>Aucune image disponible pour le moment.</p>
+						</div>
+						<p id="hl-mood" class="hl-mood"></p>
+						<ul id="hl-reasons" class="hl-reasons"></ul>
+						<div class="confidence">
+							<div class="confidence-track"><div id="hl-confidence" class="confidence-fill"></div></div>
+							<p id="hl-confidence-label" class="muted small"></p>
+						</div>
+					</aside>
+				</div>
+			</section>
+
+			<section id="tab-photos" class="panel" hidden>
+				<div class="card">
+					<h2 class="section-title">Les images</h2>
+					<p class="muted">Voici les images parmi lesquelles le site choisit celle de chaque journée, avec les humeurs et mots-clés qui leur sont associés.</p>
+				</div>
+				<p id="no-photo" class="muted center">Aucune image déclarée dans <code>js/photos.js</code>.</p>
+				<div id="photo-grid" class="photo-grid"></div>
+			</section>
+
+			<section id="tab-settings" class="panel" hidden>
+				<div class="settings-grid">
+					<div class="card">
+						<h2 id="settings-name" class="section-title"></h2>
+						<p id="settings-expires" class="muted"></p>
+						<h3 class="field-label">Membres</h3>
+						<ul id="member-list" class="member-list"></ul>
+					</div>
+					<div class="column">
+						<div class="card">
+							<h3 class="section-title">Inviter</h3>
+							<p class="muted">Toute personne qui a ce lien peut lire et écrire dans le salon.</p>
+							<div class="copy-row">
+								<input id="invite-link" class="text-input" readonly>
+								<button class="ghost-btn" data-copy="invite-link">Copier</button>
+							</div>
+							<div id="owner-zone" hidden>
+								<p class="muted small">Le lien a fuité ? Régénère-le : l'ancien ne marchera plus, mais les membres actuels gardent leur accès.</p>
+								<button id="regenerate-btn" class="ghost-btn danger-btn">Régénérer le lien</button>
+							</div>
+						</div>
+						<div class="card">
+							<h3 class="section-title">Mon accès personnel</h3>
+							<p class="muted">Ce lien te reconnaît en tant que <strong id="me-pseudo"></strong> sur n'importe quel appareil. <strong>Ne le partage pas.</strong></p>
+							<div class="copy-row">
+								<input id="recovery-link" class="text-input" readonly>
+								<button class="ghost-btn" data-copy="recovery-link">Copier</button>
+							</div>
+							<button id="leave-btn" class="link-btn danger">Oublier ce salon sur cet appareil</button>
+						</div>
+					</div>
+				</div>
+			</section>
 		</section>
 	</main>
+
+	<div id="toast" class="toast" role="status" hidden></div>
 
 	<template id="entry-template">
 		<article class="entry card">
 			<header class="entry-head">
+				<span class="avatar"></span>
+				<span class="entry-author"></span>
 				<span class="entry-mood"></span>
 				<time class="entry-time muted small"></time>
-				<button class="icon-btn entry-delete" aria-label="Supprimer">✕</button>
+				<button class="icon-btn entry-delete" aria-label="Supprimer" hidden>✕</button>
 			</header>
 			<p class="entry-text"></p>
 		</article>
+	</template>
+
+	<template id="member-day-template">
+		<figure class="member-day card">
+			<img alt="">
+			<figcaption>
+				<span class="avatar"></span>
+				<span class="member-day-name"></span>
+				<span class="member-day-mood"></span>
+			</figcaption>
+		</figure>
 	</template>
 
 	<template id="photo-template">
