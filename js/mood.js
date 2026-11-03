@@ -126,7 +126,7 @@ function hash(str)
 }
 
 // Note une photo par rapport à l'analyse de la journée et explique pourquoi
-function scorePhoto(photo, analysis, date)
+function scorePhoto(photo, analysis, seed)
 {
 	const reasons = [];
 	const moods = (photo.moods || []).filter(key => MOODS[key]);
@@ -171,14 +171,14 @@ function scorePhoto(photo, analysis, date)
 	if (!moods.length && !tags.length)
 		score *= 0.7;
 
-	score += (hash(date + photo.src) % 1000) / 100000;
+	score += (hash(seed + photo.src) % 1000) / 100000;
 	return { photo, score, reasons };
 }
 
-// Choisit parmi les photos celle qui correspond le mieux à la journée
-export function pickPhoto(analysis, photos, date)
+// Choisit parmi les photos celle qui correspond le mieux à la journée (seed varie le choix entre deux photos ex æquo)
+export function pickPhoto(analysis, photos, seed)
 {
 	if (!analysis || !photos.length)
 		return null;
-	return photos.map(photo => scorePhoto(photo, analysis, date)).sort((a, b) => b.score - a.score)[0];
+	return photos.map(photo => scorePhoto(photo, analysis, seed)).sort((a, b) => b.score - a.score)[0];
 }
