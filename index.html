@@ -10,6 +10,11 @@
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 	<link rel="stylesheet" href="css/style.css">
+	<link rel="manifest" href="/manifest.webmanifest">
+	<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+	<meta name="theme-color" content="#c8643b">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-title" content="Humeur">
 </head>
 <body>
 	<header class="topbar">
@@ -37,6 +42,9 @@
 					<input id="room-name" class="text-input" maxlength="60" placeholder="Ex : Les copains de la fac" required>
 					<label class="field-label" for="owner-pseudo">Ton pseudo</label>
 					<input id="owner-pseudo" class="text-input" maxlength="30" placeholder="Ex : Bastien" required>
+					<label class="field-label" for="owner-code">Ton code secret</label>
+					<input id="owner-code" class="text-input" type="password" minlength="4" maxlength="64" autocomplete="new-password" required>
+					<p class="hint muted small">4 caractères minimum. Il te permettra de reprendre ton pseudo sur un autre appareil.</p>
 					<label class="field-label" for="room-expires">Fermer le salon le <span class="muted">(facultatif)</span></label>
 					<input id="room-expires" class="text-input" type="date">
 					<p class="form-error" hidden></p>
@@ -64,10 +72,17 @@
 				<p class="eyebrow">Tu as été invité dans le salon</p>
 				<h1 id="join-room-name" class="hero-title"></h1>
 				<p id="join-members" class="muted"></p>
-				<label class="field-label" for="join-pseudo">Choisis ton pseudo</label>
+				<div class="segmented" role="tablist">
+					<button type="button" class="is-active" data-join-mode="join">Je suis nouveau</button>
+					<button type="button" data-join-mode="reclaim">J'ai déjà un pseudo</button>
+				</div>
+				<label class="field-label" for="join-pseudo" data-label-join="Choisis ton pseudo" data-label-reclaim="Ton pseudo dans ce salon">Choisis ton pseudo</label>
 				<input id="join-pseudo" class="text-input" maxlength="30" required>
+				<label class="field-label" for="join-code" data-label-join="Choisis un code secret" data-label-reclaim="Ton code secret">Choisis un code secret</label>
+				<input id="join-code" class="text-input" type="password" minlength="4" maxlength="64" autocomplete="new-password" required>
+				<p id="join-hint" class="hint muted small" data-label-join="4 caractères minimum. Garde-le bien : il te permettra de reprendre ton pseudo sur un autre appareil." data-label-reclaim="Le code choisi en rejoignant le salon. Pas de code ? Demande au créateur du salon de te générer un lien d'accès.">4 caractères minimum. Garde-le bien : il te permettra de reprendre ton pseudo sur un autre appareil.</p>
 				<p class="form-error" hidden></p>
-				<button type="submit" class="primary-btn">Rejoindre</button>
+				<button type="submit" class="primary-btn" data-label-join="Rejoindre" data-label-reclaim="Reprendre mon pseudo">Rejoindre</button>
 			</form>
 		</section>
 
@@ -84,6 +99,7 @@
 		<section id="view-room" class="view" hidden>
 			<section id="tab-journal" class="panel">
 				<p id="room-title" class="eyebrow room-title"></p>
+				<p id="code-banner" class="banner" hidden>🔑 Tu n'as pas encore de code secret : sans lui, tu risques de perdre ton pseudo si ton navigateur oublie ce salon. <button class="link-btn" data-tab="settings">Le définir</button></p>
 				<div class="date-bar">
 					<button id="prev-day" class="icon-btn" aria-label="Jour précédent">‹</button>
 					<input id="date-input" type="date" aria-label="Date">
@@ -157,6 +173,31 @@
 							</div>
 						</div>
 						<div class="card">
+							<h3 class="section-title">Mon profil</h3>
+							<form id="rename-form">
+								<label class="field-label" for="rename-input">Pseudo</label>
+								<div class="copy-row">
+									<input id="rename-input" class="text-input" maxlength="30" required>
+									<button type="submit" class="ghost-btn">Renommer</button>
+								</div>
+								<p class="form-error" hidden></p>
+							</form>
+							<form id="code-form">
+								<label class="field-label" for="code-input">Code secret <span id="code-status" class="muted"></span></label>
+								<div class="copy-row">
+									<input id="code-input" class="text-input" type="password" minlength="4" maxlength="64" autocomplete="new-password" required>
+									<button type="submit" class="ghost-btn">Enregistrer</button>
+								</div>
+								<p class="hint muted small">Avec ton pseudo, il te permet de te reconnecter sur n'importe quel appareil.</p>
+								<p class="form-error" hidden></p>
+							</form>
+						</div>
+						<div class="card">
+							<h3 class="section-title">Notifications</h3>
+							<p id="push-status" class="muted"></p>
+							<button id="push-btn" class="primary-btn" hidden></button>
+						</div>
+						<div class="card">
 							<h3 class="section-title">Mon accès personnel</h3>
 							<p class="muted">Ce lien te reconnaît en tant que <strong id="me-pseudo"></strong> sur n'importe quel appareil. <strong>Ne le partage pas.</strong></p>
 							<div class="copy-row">
@@ -172,6 +213,25 @@
 	</main>
 
 	<div id="toast" class="toast" role="status" hidden></div>
+
+	<!-- Gestion d'un membre par le créateur -->
+	<dialog id="member-dialog" class="dialog">
+		<form method="dialog" class="dialog-close-form">
+			<button class="icon-btn" aria-label="Fermer">✕</button>
+		</form>
+		<h2 id="md-title" class="section-title"></h2>
+		<h3 class="field-label">Lien d'accès</h3>
+		<p class="muted small">Pour un membre qui a perdu l'accès à son pseudo. Envoie-le uniquement à cette personne, en privé.</p>
+		<button id="md-access-btn" class="ghost-btn">Générer un lien d'accès</button>
+		<div id="md-access-row" class="copy-row" hidden>
+			<input id="md-access-link" class="text-input" readonly>
+			<button class="ghost-btn" data-copy="md-access-link">Copier</button>
+		</div>
+		<h3 class="field-label md-remove-title">Retirer du salon</h3>
+		<label class="muted small" for="md-merge">Que faire de ses articles (<span id="md-count"></span>) ?</label>
+		<select id="md-merge" class="text-input"></select>
+		<button id="md-remove-btn" class="ghost-btn danger-btn"></button>
+	</dialog>
 
 	<template id="entry-template">
 		<article class="entry card">

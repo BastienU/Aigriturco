@@ -861,3 +861,114 @@ button:disabled
 		grid-template-columns: 1fr;
 	}
 }
+
+/* --- Profil, code secret, notifications, gestion des membres --- */
+
+.hint
+{
+	margin: -10px 0 16px;
+}
+
+.segmented
+{
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 4px;
+	padding: 4px;
+	margin: 16px 0 20px;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	background: var(--bg);
+}
+
+.segmented button
+{
+	padding: 8px;
+	border: 0;
+	border-radius: 9px;
+	background: none;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.segmented button.is-active
+{
+	background: var(--surface);
+	box-shadow: var(--shadow);
+	font-weight: 600;
+}
+
+.banner
+{
+	margin: 12px 0 0;
+	padding: 10px 14px;
+	border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+	font-size: 0.9rem;
+}
+
+#rename-form, #code-form
+{
+	margin-top: 12px;
+}
+
+#rename-form .form-error, #code-form .form-error
+{
+	margin-top: 8px;
+}
+
+#code-form .hint
+{
+	margin: 8px 0 0;
+}
+
+.member-manage
+{
+	margin-left: auto;
+	font-size: 0.85rem;
+}
+
+select.text-input
+{
+	appearance: auto;
+}
+
+.dialog
+{
+	width: min(440px, calc(100% - 32px));
+	padding: 24px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	background: var(--surface);
+	color: var(--text);
+	box-shadow: 0 20px 60px rgb(0 0 0 / 25%);
+}
+
+.dialog::backdrop
+{
+	background: rgb(20 15 10 / 45%);
+}
+
+.dialog-close-form
+{
+	position: absolute;
+	top: 12px;
+	right: 12px;
+}
+
+.dialog .field-label
+{
+	margin-top: 20px;
+}
+
+.dialog #md-access-row
+{
+	margin-top: 12px;
+}
+
+.dialog label.small
+{
+	display: block;
+	margin-bottom: 6px;
+}

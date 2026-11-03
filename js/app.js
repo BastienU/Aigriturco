@@ -17,7 +17,10 @@ const state = {
 	entries: [],
 	loadedFrom: null,
 	photos: validatePhotos(PHOTOS),
-	pollTimer: null
+	pollTimer: null,
+	joinMode: "join",
+	push: null,
+	managed: null
 };
 
 // Garde les images correctement déclarées et signale les erreurs du catalogue dans la console
@@ -177,6 +180,7 @@ async function showRoom()
 	document.title = `${state.room.name} · Humeur du jour`;
 	$("#room-title").textContent = state.room.name;
 	renderSettings();
+	renderPush();
 	showView("room");
 	showTab("journal");
 	await refreshEntries();
@@ -438,6 +442,10 @@ function renderSettings()
 	$("#invite-link").value = `${location.origin}/?salon=${state.token}`;
 	$("#recovery-link").value = `${location.origin}/?salon=${state.token}&membre=${state.memberKey}`;
 	$("#owner-zone").hidden = !state.me.isOwner;
+	if (document.activeElement !== $("#rename-input"))
+		$("#rename-input").value = state.me.pseudo;
+	$("#code-status").textContent = state.me.hasCode ? "· ✅ défini" : "· ⚠️ pas encore défini";
+	$("#code-banner").hidden = state.me.hasCode;
 
 	const list = $("#member-list");
 	list.replaceChildren();
@@ -456,6 +464,14 @@ function renderSettings()
 			badge.className = "badge";
 			badge.textContent = "créateur";
 			item.append(badge);
+		}
+		if (state.me.isOwner && member.id !== state.me.id)
+		{
+			const manage = document.createElement("button");
+			manage.className = "link-btn member-manage";
+			manage.textContent = "Gérer";
+			manage.addEventListener("click", () => openMemberDialog(member));
+			item.append(manage);
 		}
 		list.append(item);
 	});
@@ -502,6 +518,7 @@ function onCreate(event)
 		const data = await request("POST", "rooms", { body: {
 			name: $("#room-name").value,
 			pseudo: $("#owner-pseudo").value,
+			code: $("#owner-code").value,
 			expiresAt: $("#room-expires").value || null
 		} });
 		state.token = data.room.token;
@@ -534,13 +551,28 @@ function onOpenLink(event)
 		location.href = `/?salon=${encodeURIComponent(token)}`;
 }
 
-// Rejoint le salon avec le pseudo choisi
+// Bascule le formulaire entre « Je suis nouveau » et « J'ai déjà un pseudo »
+function setJoinMode(mode)
+{
+	state.joinMode = mode;
+	document.querySelectorAll("[data-join-mode]").forEach(button => button.classList.toggle("is-active", button.dataset.joinMode === mode));
+	document.querySelectorAll("#join-form [data-label-join]").forEach(element => element.textContent = element.dataset[mode === "join" ? "labelJoin" : "labelReclaim"]);
+	$("#join-code").autocomplete = mode === "join" ? "new-password" : "current-password";
+	$("#join-form .form-error").hidden = true;
+}
+
+// Rejoint le salon avec un nouveau pseudo, ou reprend un pseudo existant grâce au code secret
 function onJoin(event)
 {
 	event.preventDefault();
 	submitWith(event.target, async () =>
 	{
-		const data = await request("POST", "members", { body: { salon: state.token, pseudo: $("#join-pseudo").value } });
+		const data = await request("POST", "members", { body: {
+			salon: state.token,
+			action: state.joinMode,
+			pseudo: $("#join-pseudo").value,
+			code: $("#join-code").value
+		} });
 		state.memberKey = data.memberKey;
 		await loadRoom();
 		await showRoom();
@@ -609,6 +641,177 @@ function leaveRoom()
 	location.href = "/";
 }
 
+// Change son pseudo
+function onRename(event)
+{
+	event.preventDefault();
+	submitWith(event.target, async () =>
+	{
+		await request("PATCH", "members", { memberKey: state.memberKey, body: { salon: state.token, pseudo: $("#rename-input").value } });
+		$("#rename-input").blur();
+		await refreshAll();
+		toast("Pseudo modifié !");
+	});
+}
+
+// Définit ou change son code secret
+function onSetCode(event)
+{
+	event.preventDefault();
+	submitWith(event.target, async () =>
+	{
+		await request("PATCH", "members", { memberKey: state.memberKey, body: { salon: state.token, code: $("#code-input").value } });
+		$("#code-input").value = "";
+		state.me.hasCode = true;
+		renderSettings();
+		toast("Code secret enregistré.");
+	});
+}
+
+// Ouvre la fenêtre de gestion d'un membre (créateur uniquement)
+function openMemberDialog(member)
+{
+	state.managed = member;
+	const count = member.entryCount;
+	$("#md-title").textContent = member.pseudo;
+	$("#md-count").textContent = `${count} article${count > 1 ? "s" : ""}`;
+	$("#md-access-row").hidden = true;
+	$("#md-remove-btn").textContent = `Retirer ${member.pseudo}`;
+	const select = $("#md-merge");
+	select.replaceChildren(new Option("Les supprimer", ""));
+	state.members.filter(other => other.id !== member.id).forEach(other => select.append(new Option(`Les transférer à ${other.pseudo}`, other.id)));
+	$("#member-dialog").showModal();
+}
+
+// Génère un lien d'accès pour le membre géré
+async function generateAccessLink()
+{
+	try
+	{
+		const data = await request("POST", "members", { memberKey: state.memberKey, body: { salon: state.token, action: "access", memberId: state.managed.id } });
+		$("#md-access-link").value = `${location.origin}/?salon=${state.token}&membre=${data.memberKey}`;
+		$("#md-access-row").hidden = false;
+	}
+	catch (error)
+	{
+		toast(error.message);
+	}
+}
+
+// Retire le membre géré, en transférant ou supprimant ses articles
+async function removeMember()
+{
+	const member = state.managed;
+	const target = $("#md-merge").value;
+	const fate = target ? `ses articles seront transférés à ${state.members.find(other => other.id === target).pseudo}` : "ses articles seront supprimés";
+	if (!confirm(`Retirer ${member.pseudo} du salon ? ${fate[0].toUpperCase() + fate.slice(1)}.`))
+		return;
+	try
+	{
+		const query = { salon: state.token, id: member.id };
+		if (target)
+			query.mergeInto = target;
+		await request("DELETE", "members", { query, memberKey: state.memberKey });
+		$("#member-dialog").close();
+		await refreshAll();
+		toast(`${member.pseudo} a été retiré du salon.`);
+	}
+	catch (error)
+	{
+		toast(error.message);
+	}
+}
+
+// Convertit la clé publique VAPID (base64url) dans le format attendu par le navigateur
+function base64UrlToBytes(value)
+{
+	const base64 = (value + "=".repeat((4 - value.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/");
+	return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+}
+
+// Indique si le site est ouvert comme application installée (écran d'accueil)
+function isStandalone()
+{
+	return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+}
+
+// Affiche l'état des notifications pour ce salon et sur cet appareil
+async function renderPush()
+{
+	const status = $("#push-status");
+	const button = $("#push-btn");
+	button.hidden = true;
+	const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+	if (isIos && !isStandalone())
+		return status.textContent = "Sur iPhone, ajoute d'abord le site à l'écran d'accueil (bouton Partager → « Sur l'écran d'accueil »), puis ouvre-le depuis l'icône pour activer les notifications.";
+	if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window))
+		return status.textContent = "Ton navigateur ne gère pas les notifications.";
+	try
+	{
+		state.push ??= await request("GET", "push");
+	}
+	catch
+	{
+		return status.textContent = "Impossible de vérifier les notifications pour le moment.";
+	}
+	if (!state.push.enabled)
+		return status.textContent = "Les notifications ne sont pas encore configurées sur le serveur.";
+	if (Notification.permission === "denied")
+		return status.textContent = "Tu as bloqué les notifications pour ce site : réautorise-les dans les réglages de ton navigateur.";
+
+	const enabled = Boolean(session.findRoom(state.token)?.push) && Notification.permission === "granted";
+	status.textContent = enabled ? "🔔 Tu reçois une notification quand un membre publie un article." : "Reçois une notification sur cet appareil quand un membre publie un article.";
+	button.textContent = enabled ? "Désactiver" : "Activer les notifications";
+	button.className = enabled ? "ghost-btn" : "primary-btn";
+	button.hidden = false;
+}
+
+// Active ou désactive les notifications de ce salon sur cet appareil
+async function togglePush()
+{
+	const button = $("#push-btn");
+	button.disabled = true;
+	try
+	{
+		const registration = await navigator.serviceWorker.ready;
+		let subscription = await registration.pushManager.getSubscription();
+		if (session.findRoom(state.token)?.push)
+		{
+			if (subscription)
+				await request("DELETE", "push", { query: { salon: state.token, endpoint: subscription.endpoint }, memberKey: state.memberKey });
+			session.saveRoom({ token: state.token, push: false });
+		}
+		else
+		{
+			if (await Notification.requestPermission() !== "granted")
+				throw new Error("Notifications refusées.");
+			const options = { userVisibleOnly: true, applicationServerKey: base64UrlToBytes(state.push.publicKey) };
+			try
+			{
+				subscription ??= await registration.pushManager.subscribe(options);
+			}
+			catch
+			{
+				// L'ancien abonnement a été créé avec une autre clé serveur : on le remplace
+				await subscription?.unsubscribe();
+				subscription = await registration.pushManager.subscribe(options);
+			}
+			await request("POST", "push", { memberKey: state.memberKey, body: { salon: state.token, subscription: subscription.toJSON() } });
+			session.saveRoom({ token: state.token, push: true });
+			toast("Notifications activées 🔔");
+		}
+	}
+	catch (error)
+	{
+		toast(`Impossible de modifier les notifications : ${error.message}`);
+	}
+	finally
+	{
+		button.disabled = false;
+		renderPush();
+	}
+}
+
 // Copie le contenu d'un champ dans le presse-papiers
 async function copyField(id)
 {
@@ -645,6 +848,12 @@ function bindEvents()
 	$("#next-day").addEventListener("click", () => goToDate(shiftDate(state.date, 1)));
 	$("#today-btn").addEventListener("click", () => goToDate(todayStr()));
 	$("#regenerate-btn").addEventListener("click", regenerateLink);
+	$("#rename-form").addEventListener("submit", onRename);
+	$("#code-form").addEventListener("submit", onSetCode);
+	$("#push-btn").addEventListener("click", togglePush);
+	$("#md-access-btn").addEventListener("click", generateAccessLink);
+	$("#md-remove-btn").addEventListener("click", removeMember);
+	document.querySelectorAll("[data-join-mode]").forEach(button => button.addEventListener("click", () => setJoinMode(button.dataset.joinMode)));
 	$("#leave-btn").addEventListener("click", leaveRoom);
 	document.querySelectorAll("[data-tab]").forEach(tab => tab.addEventListener("click", () => showTab(tab.dataset.tab)));
 	document.querySelectorAll("[data-copy]").forEach(button => button.addEventListener("click", () => copyField(button.dataset.copy)));
@@ -662,6 +871,8 @@ async function init()
 	bindEvents();
 	renderMoodPicker();
 	renderGallery();
+	if ("serviceWorker" in navigator)
+		navigator.serviceWorker.register("/sw.js").catch(error => console.warn("Service worker :", error));
 
 	const params = new URLSearchParams(location.search);
 	const token = params.get("salon");
