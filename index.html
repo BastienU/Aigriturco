@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fr">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Humeur du jour</title>
+	<meta name="description" content="Ton journal d'humeur quotidien, illustré par tes propres photos.">
+	<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📔</text></svg>">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+	<header class="topbar">
+		<h1 class="brand">📔 Humeur du jour</h1>
+		<nav class="tabs" role="tablist">
+			<button class="tab is-active" data-tab="journal" role="tab">Journal</button>
+			<button class="tab" data-tab="photos" role="tab">Mes photos <span id="photo-count" class="badge">0</span></button>
+		</nav>
+	</header>
+
+	<main>
+		<section id="tab-journal" class="panel">
+			<div class="date-bar">
+				<button id="prev-day" class="icon-btn" aria-label="Jour précédent">‹</button>
+				<input id="date-input" type="date" aria-label="Date">
+				<button id="next-day" class="icon-btn" aria-label="Jour suivant">›</button>
+				<button id="today-btn" class="ghost-btn">Aujourd'hui</button>
+			</div>
+			<h2 id="day-title" class="day-title"></h2>
+
+			<div id="history" class="history" aria-label="30 derniers jours"></div>
+
+			<div class="layout">
+				<div class="column">
+					<form id="entry-form" class="card">
+						<label class="field-label" for="anecdote">Une anecdote, un moment, une pensée…</label>
+						<textarea id="anecdote" rows="4" maxlength="2000" placeholder="Ex : déjeuner au soleil avec Léa, on a beaucoup ri."></textarea>
+						<span class="field-label">Ton humeur</span>
+						<div id="mood-picker" class="mood-picker"></div>
+						<p id="form-error" class="form-error" hidden></p>
+						<button type="submit" class="primary-btn">Enregistrer</button>
+					</form>
+
+					<div id="entries" class="entries"></div>
+					<p id="no-entry" class="muted center">Aucune entrée pour ce jour. Écris la première ✍️</p>
+				</div>
+
+				<aside id="highlight" class="card highlight" hidden>
+					<p class="eyebrow">L'image de ta journée</p>
+					<img id="hl-photo" class="hl-photo" alt="Photo choisie pour la journée" hidden>
+					<div id="hl-empty" class="hl-empty" hidden>
+						<p>Ajoute des photos dans <button class="link-btn" data-goto="photos">Mes photos</button> pour illustrer tes journées.</p>
+					</div>
+					<p id="hl-mood" class="hl-mood"></p>
+					<ul id="hl-reasons" class="hl-reasons"></ul>
+					<div class="confidence">
+						<div class="confidence-track"><div id="hl-confidence" class="confidence-fill"></div></div>
+						<p id="hl-confidence-label" class="muted small"></p>
+					</div>
+				</aside>
+			</div>
+		</section>
+
+		<section id="tab-photos" class="panel" hidden>
+			<div class="card">
+				<h2 class="section-title">Ta galerie</h2>
+				<p class="muted">Ajoute des photos puis associe-leur une ou plusieurs humeurs et quelques mots-clés (ex : <em>plage, amis, pluie</em>). Plus elles sont décrites, mieux elles seront choisies.</p>
+				<label class="primary-btn file-btn">
+					＋ Ajouter des photos
+					<input id="photo-input" type="file" accept="image/*" multiple hidden>
+				</label>
+			</div>
+			<p id="no-photo" class="muted center">Pas encore de photo.</p>
+			<div id="photo-grid" class="photo-grid"></div>
+
+			<div class="card backup">
+				<h2 class="section-title">Sauvegarde</h2>
+				<p class="muted">Tes données restent dans ce navigateur. Exporte-les régulièrement pour ne rien perdre ou pour les transférer sur un autre appareil.</p>
+				<div class="row">
+					<button id="export-btn" class="ghost-btn">Exporter (.json)</button>
+					<label class="ghost-btn">
+						Importer
+						<input id="import-input" type="file" accept="application/json" hidden>
+					</label>
+				</div>
+			</div>
+		</section>
+	</main>
+
+	<template id="entry-template">
+		<article class="entry card">
+			<header class="entry-head">
+				<span class="entry-mood"></span>
+				<time class="entry-time muted small"></time>
+				<button class="icon-btn entry-delete" aria-label="Supprimer">✕</button>
+			</header>
+			<p class="entry-text"></p>
+		</article>
+	</template>
+
+	<template id="photo-template">
+		<figure class="photo-card card">
+			<img alt="">
+			<figcaption>
+				<div class="chips"></div>
+				<input class="tags-input" type="text" placeholder="Mots-clés : plage, amis…">
+				<button class="link-btn danger photo-delete">Supprimer</button>
+			</figcaption>
+		</figure>
+	</template>
+
+	<script type="module" src="js/app.js"></script>
+</body>
+</html>
