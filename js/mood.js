@@ -65,26 +65,31 @@ function analyzeText(text)
 	};
 }
 
-// Renvoie la clé de l'humeur la plus proche d'un point (valence, énergie) parmi les candidates,
-// en avantageant légèrement celles réellement choisies dans la journée (départage les humeurs proches)
-function nearestMood(valence, energy, candidates, moodCounts = {})
+const CHOSEN_BONUS = 0.25;
+
+// Classe les humeurs candidates de la plus proche à la plus éloignée d'un point (valence, énergie),
+// en avantageant légèrement celles réellement choisies (départage les humeurs proches)
+function rankMoods(valence, energy, candidates, moodCounts = {})
 {
-	let best = "neutre";
-	let bestDistance = Infinity;
-	for (const [key, mood] of Object.entries(candidates))
+	return Object.entries(candidates).map(([key, mood]) =>
 	{
-		const distance = Math.hypot(mood.valence - valence, mood.energy - energy) - (moodCounts[key] ? 0.25 : 0);
-		if (distance < bestDistance)
-		{
-			best = key;
-			bestDistance = distance;
-		}
-	}
-	return best;
+		const distance = Math.hypot(mood.valence - valence, mood.energy - energy);
+		const bonus = moodCounts[key] ? CHOSEN_BONUS : 0;
+		return { key, distance, bonus, score: distance - bonus };
+	}).sort((a, b) => a.score - b.score);
 }
 
-// Calcule l'état d'esprit global d'une journée à partir de toutes ses entrées.
-// moods : toutes les humeurs connues (base + celles du salon) ; candidates : celles qui peuvent être choisies comme humeur du jour
+// Retire « Neutre » des candidates sauf s'il a été choisi au moins une fois sur deux
+function withoutRareNeutral(candidates, neutralCount, total)
+{
+	if (!candidates.neutre || neutralCount * 2 >= total)
+		return candidates;
+	const { neutre, ...others } = candidates;
+	return others;
+}
+
+// Calcule l'humeur d'une personne sur une journée à partir de ses articles.
+// moods : toutes les humeurs connues (base + celles du salon) ; candidates : celles qui peuvent être retenues
 export function analyzeDay(entries, moods = MOODS, candidates = moods)
 {
 	const valid = entries.filter(entry => moods[entry.mood]);
@@ -101,6 +106,7 @@ export function analyzeDay(entries, moods = MOODS, candidates = moods)
 	});
 	valence /= valid.length;
 	energy /= valid.length;
+	const chosen = { valence, energy };
 
 	const text = analyzeText(valid.map(entry => entry.anecdote).join(" "));
 	if (text.hits)
@@ -111,16 +117,55 @@ export function analyzeDay(entries, moods = MOODS, candidates = moods)
 		energy = energy * (1 - weight) + text.energy * weight;
 	}
 
-	const confidence = Math.min(1, valid.length * 0.2 + Math.min(text.hits, 4) * 0.05 + 0.1);
+	const ranking = rankMoods(valence, energy, withoutRareNeutral(candidates, moodCounts.neutre || 0, valid.length), moodCounts);
 	return {
 		valence,
 		energy,
-		mood: nearestMood(valence, energy, candidates, moodCounts),
+		chosen,
+		mood: ranking[0].key,
+		ranking,
 		moodCounts,
 		keywords: text.keywords,
 		textHits: text.hits,
 		count: valid.length,
-		confidence
+		confidence: Math.min(1, valid.length * 0.2 + Math.min(text.hits, 4) * 0.05 + 0.1)
+	};
+}
+
+// Calcule l'ambiance du salon sur une journée : chaque membre compte pour une voix, quel que soit son nombre d'articles
+export function analyzeRoomDay(entries, moods = MOODS, candidates = moods)
+{
+	const byMember = new Map();
+	entries.filter(entry => moods[entry.mood]).forEach(entry =>
+	{
+		if (!byMember.has(entry.memberId))
+			byMember.set(entry.memberId, []);
+		byMember.get(entry.memberId).push(entry);
+	});
+	if (!byMember.size)
+		return null;
+
+	const members = [...byMember].map(([memberId, memberEntries]) => ({ memberId, pseudo: memberEntries[0].pseudo, analysis: analyzeDay(memberEntries, moods, candidates) }));
+	const valence = members.reduce((sum, member) => sum + member.analysis.valence, 0) / members.length;
+	const energy = members.reduce((sum, member) => sum + member.analysis.energy, 0) / members.length;
+
+	// Humeurs « votées » : celle retenue pour chaque membre
+	const votes = {};
+	members.forEach(member => votes[member.analysis.mood] = (votes[member.analysis.mood] || 0) + 1);
+	const ranking = rankMoods(valence, energy, withoutRareNeutral(candidates, votes.neutre || 0, members.length), votes);
+
+	const keywords = new Set(members.flatMap(member => [...member.analysis.keywords]));
+	const count = members.reduce((sum, member) => sum + member.analysis.count, 0);
+	return {
+		valence,
+		energy,
+		mood: ranking[0].key,
+		ranking,
+		moodCounts: votes,
+		keywords,
+		count,
+		members,
+		confidence: Math.min(1, members.length * 0.25 + count * 0.05)
 	};
 }
 
