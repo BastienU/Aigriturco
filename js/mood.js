@@ -164,7 +164,7 @@ function scorePhoto(photo, analysis, date)
 	const tags = tokenize(photo.tags || "").filter(tag => tag.length >= 3);
 	const matched = tags.filter(tag => [...analysis.keywords].some(word => word.startsWith(tag) || tag.startsWith(word)));
 	if (matched.length)
-		reasons.push(`Mot-clé ${matched.map(tag => `« ${tag} »`).join(", ")} retrouvé dans tes anecdotes`);
+		reasons.push(`${matched.length > 1 ? "Mots-clés" : "Mot-clé"} ${matched.map(tag => `« ${tag} »`).join(", ")} ${matched.length > 1 ? "retrouvés" : "retrouvé"} dans tes anecdotes`);
 	score += Math.min(1, matched.length * 0.5) * 0.3;
 
 	// Une photo sans étiquette reste candidate, mais passe après les autres
