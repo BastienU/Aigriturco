@@ -215,7 +215,7 @@ button, input, textarea
 	font-weight: 600;
 }
 
-textarea, .tags-input
+textarea
 {
 	width: 100%;
 	padding: 12px;
@@ -226,7 +226,7 @@ textarea, .tags-input
 	margin-bottom: 16px;
 }
 
-textarea:focus, .tags-input:focus, .date-bar input:focus
+textarea:focus, .date-bar input:focus
 {
 	outline: 2px solid var(--accent);
 	outline-offset: 1px;
@@ -492,11 +492,31 @@ textarea:focus, .tags-input:focus, .date-bar input:focus
 	padding: 12px;
 }
 
-.photo-card .tags-input
+.photo-tags, .photo-src
 {
-	margin: 10px 0;
-	padding: 8px 10px;
-	font-size: 0.9rem;
+	margin: 8px 0 0;
+	overflow-wrap: anywhere;
+}
+
+.photo-tags:empty
+{
+	display: none;
+}
+
+.photo-src
+{
+	font-family: ui-monospace, monospace;
+}
+
+.photo-card.is-missing img
+{
+	opacity: 0;
+}
+
+.photo-card.is-missing .photo-src::after
+{
+	content: " · fichier introuvable";
+	color: var(--danger);
 }
 
 .chips
@@ -513,18 +533,12 @@ textarea:focus, .tags-input:focus, .date-bar input:focus
 	border-radius: 999px;
 	background: var(--bg);
 	font-size: 0.8rem;
-	cursor: pointer;
 }
 
 .chip.is-selected
 {
 	border-color: var(--mood-color);
 	background: color-mix(in srgb, var(--mood-color) 22%, var(--bg));
-}
-
-.file-btn
-{
-	margin-top: 8px;
 }
 
 .backup

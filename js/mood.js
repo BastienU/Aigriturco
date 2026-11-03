@@ -171,7 +171,7 @@ function scorePhoto(photo, analysis, date)
 	if (!moods.length && !tags.length)
 		score *= 0.7;
 
-	score += (hash(date + photo.id) % 1000) / 100000;
+	score += (hash(date + photo.src) % 1000) / 100000;
 	return { photo, score, reasons };
 }
 

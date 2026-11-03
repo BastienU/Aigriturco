@@ -15,7 +15,6 @@ function openDb()
 			const db = request.result;
 			const entries = db.createObjectStore("entries", { keyPath: "id" });
 			entries.createIndex("date", "date");
-			db.createObjectStore("photos", { keyPath: "id" });
 		};
 		request.onsuccess = () => resolve(request.result);
 		request.onerror = () => reject(request.error);
@@ -60,28 +59,10 @@ export function getAllEntries()
 	return run("entries", "readonly", store => store.getAll());
 }
 
-// Enregistre (ou met à jour) une photo et ses étiquettes
-export function savePhoto(photo)
+// Insère plusieurs entrées d'un coup (utilisé pour l'import d'une sauvegarde)
+export function putEntries(items)
 {
-	return run("photos", "readwrite", store => store.put(photo));
-}
-
-// Supprime une photo
-export function deletePhoto(id)
-{
-	return run("photos", "readwrite", store => store.delete(id));
-}
-
-// Renvoie toutes les photos
-export function getAllPhotos()
-{
-	return run("photos", "readonly", store => store.getAll());
-}
-
-// Insère plusieurs éléments d'un coup (utilisé pour l'import d'une sauvegarde)
-export function putMany(storeName, items)
-{
-	return run(storeName, "readwrite", store =>
+	return run("entries", "readwrite", store =>
 	{
 		items.forEach(item => store.put(item));
 	});

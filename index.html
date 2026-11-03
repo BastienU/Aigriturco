@@ -16,7 +16,7 @@
 		<h1 class="brand">📔 Humeur du jour</h1>
 		<nav class="tabs" role="tablist">
 			<button class="tab is-active" data-tab="journal" role="tab">Journal</button>
-			<button class="tab" data-tab="photos" role="tab">Mes photos <span id="photo-count" class="badge">0</span></button>
+			<button class="tab" data-tab="photos" role="tab">Galerie <span id="photo-count" class="badge">0</span></button>
 		</nav>
 	</header>
 
@@ -51,7 +51,7 @@
 					<p class="eyebrow">L'image de ta journée</p>
 					<img id="hl-photo" class="hl-photo" alt="Photo choisie pour la journée" hidden>
 					<div id="hl-empty" class="hl-empty" hidden>
-						<p>Ajoute des photos dans <button class="link-btn" data-goto="photos">Mes photos</button> pour illustrer tes journées.</p>
+						<p>Aucune image disponible pour le moment.</p>
 					</div>
 					<p id="hl-mood" class="hl-mood"></p>
 					<ul id="hl-reasons" class="hl-reasons"></ul>
@@ -65,19 +65,15 @@
 
 		<section id="tab-photos" class="panel" hidden>
 			<div class="card">
-				<h2 class="section-title">Ta galerie</h2>
-				<p class="muted">Ajoute des photos puis associe-leur une ou plusieurs humeurs et quelques mots-clés (ex : <em>plage, amis, pluie</em>). Plus elles sont décrites, mieux elles seront choisies.</p>
-				<label class="primary-btn file-btn">
-					＋ Ajouter des photos
-					<input id="photo-input" type="file" accept="image/*" multiple hidden>
-				</label>
+				<h2 class="section-title">Les images</h2>
+				<p class="muted">Voici les images parmi lesquelles le site choisit celle de ta journée, avec les humeurs et mots-clés qui leur sont associés.</p>
 			</div>
-			<p id="no-photo" class="muted center">Pas encore de photo.</p>
+			<p id="no-photo" class="muted center">Aucune image déclarée dans <code>js/photos.js</code>.</p>
 			<div id="photo-grid" class="photo-grid"></div>
 
 			<div class="card backup">
 				<h2 class="section-title">Sauvegarde</h2>
-				<p class="muted">Tes données restent dans ce navigateur. Exporte-les régulièrement pour ne rien perdre ou pour les transférer sur un autre appareil.</p>
+				<p class="muted">Tes entrées restent dans ce navigateur. Exporte-les régulièrement pour ne rien perdre ou pour les transférer sur un autre appareil.</p>
 				<div class="row">
 					<button id="export-btn" class="ghost-btn">Exporter (.json)</button>
 					<label class="ghost-btn">
@@ -105,8 +101,8 @@
 			<img alt="">
 			<figcaption>
 				<div class="chips"></div>
-				<input class="tags-input" type="text" placeholder="Mots-clés : plage, amis…">
-				<button class="link-btn danger photo-delete">Supprimer</button>
+				<p class="photo-tags muted small"></p>
+				<p class="photo-src muted small"></p>
 			</figcaption>
 		</figure>
 	</template>
