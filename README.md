@@ -5,9 +5,11 @@ Journal d'humeur partagé : on crée un **salon**, on partage son lien, et chaqu
 ## Fonctionnement
 
 - **Accueil** : créer un salon (nom, pseudo, date de fermeture facultative), retrouver « Mes salons », ou ouvrir un lien reçu.
-- **Rejoindre** : la personne qui ouvre le lien choisit un pseudo (unique dans le salon).
+- **Rejoindre** : la personne qui ouvre le lien choisit un pseudo (unique dans le salon) et un **code secret**. Sur un autre appareil (ou si le navigateur a tout oublié), « J'ai déjà un pseudo » + le code permettent de reprendre son compte. Après 5 codes faux, le pseudo est bloqué 15 minutes.
 - **Journal** : date du jour par défaut, articles de tous les membres avec pseudo et heure, « Chacun sa journée » (humeur et image par membre), image du salon et frise des 30 derniers jours. Rafraîchissement automatique toutes les 20 s tant que la page est visible.
-- **Salon** : membres, lien d'invitation, lien d'accès personnel (pour retrouver son pseudo sur un autre appareil), régénération du lien par le créateur.
+- **Salon** : membres, lien d'invitation, profil (renommer, changer son code secret), notifications, lien d'accès personnel, régénération du lien par le créateur.
+- **Gestion des membres (créateur)** : bouton « Gérer » sur chaque membre pour lui générer un lien d'accès (s'il a perdu le sien) ou le retirer du salon en supprimant ou transférant ses articles à un autre membre.
+- **Notifications** : chaque membre peut activer, sur chacun de ses appareils, une notification à chaque nouvel article des autres membres (Web Push). Sur iPhone, il faut d'abord ajouter le site à l'écran d'accueil (iOS 16.4 minimum).
 - **Droits** : chacun supprime ses articles ; le créateur peut supprimer tous les articles et régénérer le lien. Après une régénération, l'ancien lien ne marche plus pour les nouveaux venus, mais les membres existants sont redirigés automatiquement.
 
 ⚠️ Il n'y a pas de comptes : **toute personne qui possède le lien peut lire et écrire**.
@@ -17,7 +19,9 @@ Journal d'humeur partagé : on crée un **salon**, on partage son lien, et chaqu
 - **Front** : HTML/CSS/JS sans framework (`index.html`, `css/`, `js/`).
 - **API** : fonctions serverless Vercel dans `api/` (`rooms`, `members`, `entries`). Les fichiers de `api/_lib/` ne sont pas exposés.
 - **Base de données** : Postgres Neon (offre gratuite), via la variable d'environnement `DATABASE_URL` ajoutée par l'intégration Vercel. Les tables sont créées automatiquement au premier appel.
-- **Identité** : chaque membre reçoit une clé secrète gardée dans son navigateur et envoyée dans l'en-tête `X-Member-Key`. La base n'en stocke que le hash SHA-256.
+- **Identité** : chaque appareil d'un membre reçoit une clé secrète gardée dans le navigateur et envoyée dans l'en-tête `X-Member-Key` (table `member_keys`, seul le hash SHA-256 est stocké). Le code secret est haché avec scrypt.
+- **Notifications** : service worker `sw.js`, abonnements dans `push_subscriptions`, envoi avec la librairie `web-push` (clés VAPID).
+- **Application installable** : `manifest.webmanifest` et icônes dans `icons/`.
 
 ## Lancer en local
 
@@ -49,6 +53,17 @@ Une faute de frappe dans une humeur est signalée dans la console du navigateur 
 
 Chaque push sur `main` est déployé par Vercel. Prérequis côté Vercel : la base Neon reliée au projet (onglet *Storage*), preset *Other*, sans commande de build.
 
+### Activer les notifications
+
+1. Générer une paire de clés VAPID (une seule fois) : `npx web-push generate-vapid-keys`
+2. Dans Vercel → *Settings → Environment Variables*, ajouter :
+	- `VAPID_PUBLIC_KEY` : la clé publique ;
+	- `VAPID_PRIVATE_KEY` : la clé privée (à ne jamais publier) ;
+	- `VAPID_SUBJECT` : `mailto:` suivi d'une adresse de contact.
+3. Redéployer (*Deployments → … → Redeploy*) pour que les variables soient prises en compte.
+
+Changer de clés plus tard invalide tous les abonnements : chacun devra réactiver les notifications.
+
 ## Structure
 
 ```
@@ -60,7 +75,10 @@ js/session.js         salons mémorisés dans le navigateur
 js/mood.js            analyse de l'humeur et choix de l'image (partagé avec l'API)
 js/photos.js          catalogue des images
 images/               fichiers des images
-api/                  fonctions serverless (rooms, members, entries)
+sw.js                 service worker (réception des notifications)
+manifest.webmanifest  manifeste de l'application installable
+icons/                icônes de l'application
+api/                  fonctions serverless (rooms, members, entries, push)
 api/_lib/             accès base de données et utilitaires HTTP
 scripts/dev-server.js serveur de développement local
 ```
