@@ -10,6 +10,7 @@ Journal d'humeur partagé : on crée un **salon**, on partage son lien, et chaqu
 - **Journal** : date du jour par défaut, articles de tous les membres avec pseudo et heure, « Chacun sa journée » (humeur et image par membre), image du salon et frise des 30 derniers jours. Rafraîchissement automatique toutes les 20 s tant que la page est visible.
 - **Salon** : membres, lien d'invitation, profil (renommer, changer son code secret), notifications, lien d'accès personnel, régénération du lien par le créateur.
 - **Gestion des membres (créateur)** : bouton « Gérer » sur chaque membre pour lui générer un lien d'accès (s'il a perdu le sien) ou le retirer du salon en supprimant ou transférant ses articles à un autre membre.
+- **Humeurs** : chaque membre peut proposer une humeur au salon (emoji, nom, ressenti, énergie, couleur) ; le créateur l'accepte ou la refuse, et peut en ajouter directement. Une humeur retirée qui a déjà servi est archivée : les anciens articles la gardent. Le créateur est notifié des nouvelles propositions.
 - **Notifications** : chaque membre peut activer, sur chacun de ses appareils, une notification à chaque nouvel article des autres membres (Web Push). Sur iPhone, il faut d'abord ajouter le site à l'écran d'accueil (iOS 16.4 minimum).
 - **Droits** : chacun supprime ses articles ; le créateur peut supprimer tous les articles et régénérer le lien. Après une régénération, l'ancien lien ne marche plus pour les nouveaux venus, mais les membres existants sont redirigés automatiquement.
 
@@ -79,7 +80,7 @@ images/               fichiers des images
 sw.js                 service worker (réception des notifications)
 manifest.webmanifest  manifeste de l'application installable
 icons/                icônes de l'application
-api/                  fonctions serverless (rooms, members, entries, push)
+api/                  fonctions serverless (rooms, members, entries, moods, push)
 api/_lib/             accès base de données et utilitaires HTTP
 scripts/dev-server.js serveur de développement local
 ```
