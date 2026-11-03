@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { db, ensureSchema } from "./db.js";
 
 // Erreur « métier » renvoyée telle quelle au client avec son code HTTP
@@ -48,6 +48,30 @@ export function hashKey(key)
 	return createHash("sha256").update(key).digest("hex");
 }
 
+// Hache un code secret avec un sel aléatoire (scrypt : lent exprès pour freiner les essais en masse)
+export function hashCode(code)
+{
+	const salt = randomBytes(16).toString("hex");
+	return `${salt}:${scryptSync(code, salt, 32).toString("hex")}`;
+}
+
+// Vérifie un code secret contre son hash, en temps constant
+export function verifyCode(code, stored)
+{
+	if (!stored)
+		return false;
+	const [salt, hash] = stored.split(":");
+	return timingSafeEqual(Buffer.from(hash, "hex"), scryptSync(code, salt, 32));
+}
+
+// Crée une nouvelle clé d'accès (un appareil) pour un membre et la renvoie en clair
+export async function createMemberKey(memberId)
+{
+	const key = randomToken(24);
+	await db()`INSERT INTO member_keys (key_hash, member_id) VALUES (${hashKey(key)}, ${memberId})`;
+	return key;
+}
+
 // Nettoie une chaîne et vérifie sa longueur
 export function cleanText(value, field, { min = 0, max })
 {
@@ -90,7 +114,10 @@ export async function findMember(req, roomId)
 	const key = req.headers["x-member-key"];
 	if (!key)
 		return null;
-	const [member] = await db()`SELECT id, room_id, pseudo, is_owner FROM members WHERE key_hash = ${hashKey(key)}`;
+	const [member] = await db()`
+		SELECT m.id, m.room_id, m.pseudo, m.is_owner, m.code_hash IS NOT NULL AS has_code
+		FROM member_keys k JOIN members m ON m.id = k.member_id
+		WHERE k.key_hash = ${hashKey(key)}`;
 	if (!member || (roomId && member.room_id !== roomId))
 		return null;
 	return member;
@@ -102,5 +129,14 @@ export async function requireMember(req, roomId)
 	const member = await findMember(req, roomId);
 	if (!member)
 		throw new HttpError(401, "Tu dois rejoindre ce salon avec un pseudo.");
+	return member;
+}
+
+// Comme requireMember mais réservé au créateur du salon
+export async function requireOwner(req, roomId)
+{
+	const member = await requireMember(req, roomId);
+	if (!member.is_owner)
+		throw new HttpError(403, "Action réservée au créateur du salon.");
 	return member;
 }

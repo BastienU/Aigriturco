@@ -66,4 +66,25 @@ async function createSchema()
 		created_at timestamptz NOT NULL DEFAULT now()
 	)`;
 	await sql`CREATE INDEX IF NOT EXISTS entries_room_day ON entries (room_id, day)`;
+
+	// v2 : code secret pour reprendre son pseudo, plusieurs clés (appareils) par membre, notifications
+	await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS code_hash text`;
+	await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS failed_attempts integer NOT NULL DEFAULT 0`;
+	await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS locked_until timestamptz`;
+	await sql`ALTER TABLE members ALTER COLUMN key_hash DROP NOT NULL`;
+	await sql`CREATE TABLE IF NOT EXISTS member_keys (
+		key_hash text PRIMARY KEY,
+		member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+		created_at timestamptz NOT NULL DEFAULT now()
+	)`;
+	await sql`INSERT INTO member_keys (key_hash, member_id) SELECT key_hash, id FROM members WHERE key_hash IS NOT NULL ON CONFLICT DO NOTHING`;
+	await sql`CREATE TABLE IF NOT EXISTS push_subscriptions (
+		id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+		member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+		endpoint text NOT NULL,
+		p256dh text NOT NULL,
+		auth text NOT NULL,
+		created_at timestamptz NOT NULL DEFAULT now(),
+		UNIQUE (member_id, endpoint)
+	)`;
 }
