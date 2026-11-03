@@ -1,6 +1,6 @@
 import { request } from "./api.js";
 import * as session from "./session.js";
-import { MOODS, analyzeDay, pickPhoto } from "./mood.js";
+import { MOODS, analyzeDay, pickPhoto, VALENCE_LEVELS, ENERGY_LEVELS, isSingleEmoji, defaultMoodColor } from "./mood.js";
 import { PHOTOS } from "./photos.js";
 
 const POLL_DELAY = 20000;
@@ -20,8 +20,14 @@ const state = {
 	pollTimer: null,
 	joinMode: "join",
 	push: null,
-	managed: null
+	managed: null,
+	customMoods: [],
+	allMoods: MOODS,
+	activeMoods: MOODS,
+	colorTouched: false
 };
+
+const EMOJI_SUGGESTIONS = ["🥳", "😍", "🥰", "🤗", "😎", "🤪", "😇", "🥲", "😤", "😩", "🥺", "😬", "🙃", "🤯", "😶", "🫠", "🤓", "😋", "🤢", "🥶", "🥵", "💪", "🎉", "☀️"];
 
 // Garde les images correctement déclarées et signale les erreurs du catalogue dans la console
 function validatePhotos(photos)
@@ -205,6 +211,26 @@ function applyRoom(data)
 		history.replaceState(null, "", `?salon=${encodeURIComponent(state.token)}`);
 	if (state.me)
 		session.saveRoom({ token: state.token, name: state.room.name, pseudo: state.me.pseudo, memberKey: state.memberKey }, oldToken);
+	state.customMoods = data.moods || [];
+	buildMoods();
+}
+
+// Combine les humeurs de base et celles du salon : allMoods pour l'affichage, activeMoods pour le choix
+function buildMoods()
+{
+	const toMood = mood => ({ label: mood.label, emoji: mood.emoji, color: mood.color, valence: mood.valence, energy: mood.energy });
+	const pick = statuses => Object.fromEntries(state.customMoods.filter(mood => statuses.includes(mood.status)).map(mood => [mood.key, toMood(mood)]));
+	state.allMoods = { ...MOODS, ...pick(["approved", "archived"]) };
+	state.activeMoods = { ...MOODS, ...pick(["approved"]) };
+	renderMoodPicker();
+	if (state.me)
+		renderMoodsTab();
+}
+
+// Analyse une liste d'articles avec les humeurs du salon
+function analyze(entries)
+{
+	return analyzeDay(entries, state.allMoods, state.activeMoods);
 }
 
 // Charge les articles du salon (30 derniers jours, ou plus si on regarde une date ancienne)
@@ -254,17 +280,21 @@ function startPolling()
 function renderMoodPicker()
 {
 	const picker = $("#mood-picker");
-	for (const [key, mood] of Object.entries(MOODS))
+	picker.replaceChildren();
+	for (const [key, mood] of Object.entries(state.activeMoods))
 	{
 		const button = document.createElement("button");
 		button.type = "button";
 		button.className = "mood-btn";
 		button.dataset.mood = key;
 		button.style.setProperty("--mood-color", mood.color);
-		button.innerHTML = `<span>${mood.emoji}</span>${mood.label}`;
+		const emoji = document.createElement("span");
+		emoji.textContent = mood.emoji;
+		button.append(emoji, mood.label);
 		button.addEventListener("click", () => selectMood(key));
 		picker.append(button);
 	}
+	selectMood(state.activeMoods[state.selectedMood] ? state.selectedMood : null);
 }
 
 // Sélectionne une humeur dans le formulaire
@@ -298,7 +328,7 @@ function renderEntries(entries)
 	$("#no-entry").hidden = entries.length > 0;
 	entries.forEach(entry =>
 	{
-		const mood = MOODS[entry.mood] || MOODS.neutre;
+		const mood = state.allMoods[entry.mood] || MOODS.neutre;
 		const node = template.content.cloneNode(true);
 		node.querySelector(".entry").style.setProperty("--mood-color", mood.color);
 		fillAvatar(node.querySelector(".avatar"), entry.pseudo);
@@ -339,9 +369,9 @@ function renderMembersDay(entries)
 
 	byMember.forEach((memberEntries, memberId) =>
 	{
-		const analysis = analyzeDay(memberEntries);
-		const mood = MOODS[analysis.mood];
-		const match = pickPhoto(analysis, state.photos, state.date + memberId);
+		const analysis = analyze(memberEntries);
+		const mood = state.allMoods[analysis.mood];
+		const match = pickPhoto(analysis, state.photos, state.date + memberId, state.allMoods);
 		const node = template.content.cloneNode(true);
 		const card = node.querySelector(".member-day");
 		card.style.setProperty("--mood-color", mood.color);
@@ -362,19 +392,19 @@ function renderMembersDay(entries)
 function renderHighlight(entries)
 {
 	const box = $("#highlight");
-	const analysis = analyzeDay(entries);
+	const analysis = analyze(entries);
 	box.hidden = !analysis;
 	if (!analysis)
 		return;
 
-	const mood = MOODS[analysis.mood];
+	const mood = state.allMoods[analysis.mood];
 	const authors = new Set(entries.map(entry => entry.memberId)).size;
 	box.style.setProperty("--mood-color", mood.color);
 	$("#hl-mood").textContent = `${mood.emoji} Ambiance plutôt ${mood.label.toLowerCase()}`;
 	$("#hl-confidence").style.width = `${Math.round(analysis.confidence * 100)}%`;
 	$("#hl-confidence-label").textContent = `Basé sur ${analysis.count} article${analysis.count > 1 ? "s" : ""} de ${authors} membre${authors > 1 ? "s" : ""}`;
 
-	const match = pickPhoto(analysis, state.photos, state.date);
+	const match = pickPhoto(analysis, state.photos, state.date, state.allMoods);
 	const img = $("#hl-photo");
 	const reasons = $("#hl-reasons");
 	reasons.replaceChildren();
@@ -409,13 +439,13 @@ function renderHistory()
 	for (let i = 29; i >= 0; i--)
 	{
 		const date = shiftDate(todayStr(), -i);
-		const analysis = analyzeDay(byDate.get(date) || []);
+		const analysis = analyze(byDate.get(date) || []);
 		const dot = document.createElement("button");
 		dot.className = "history-day";
 		dot.classList.toggle("is-current", date === state.date);
-		dot.title = formatLongDate(date) + (analysis ? ` · ${MOODS[analysis.mood].label}` : "");
+		dot.title = formatLongDate(date) + (analysis ? ` · ${state.allMoods[analysis.mood].label}` : "");
 		if (analysis)
-			dot.style.background = MOODS[analysis.mood].color;
+			dot.style.background = state.allMoods[analysis.mood].color;
 		dot.addEventListener("click", () => goToDate(date));
 		history.append(dot);
 	}
@@ -812,6 +842,162 @@ async function togglePush()
 	}
 }
 
+// Crée une pastille « emoji + nom » colorée pour une humeur
+function moodChip(mood)
+{
+	const chip = document.createElement("span");
+	chip.className = "chip is-selected";
+	chip.style.setProperty("--mood-color", mood.color);
+	chip.textContent = `${mood.emoji} ${mood.label}`;
+	return chip;
+}
+
+// Crée une ligne de liste pour une humeur personnalisée, avec sa description et ses boutons d'action
+function moodRow(mood, actions)
+{
+	const item = document.createElement("li");
+	const text = document.createElement("div");
+	text.className = "mood-row-text";
+	const meta = document.createElement("span");
+	meta.className = "muted small";
+	const levels = `${VALENCE_LEVELS.find(([v]) => v === mood.valence)?.[1] || ""} · ${ENERGY_LEVELS.find(([v]) => v === mood.energy)?.[1] || ""}`;
+	const by = mood.proposedBy ? ` · par ${mood.proposedBy.pseudo}` : "";
+	const usage = mood.usage ? ` · ${mood.usage} article${mood.usage > 1 ? "s" : ""}` : "";
+	meta.textContent = levels + by + usage;
+	text.append(moodChip(mood), meta);
+	item.append(text);
+	const buttons = document.createElement("div");
+	buttons.className = "mood-row-actions";
+	actions.forEach(([label, handler, danger]) =>
+	{
+		const button = document.createElement("button");
+		button.className = danger ? "link-btn danger" : "link-btn";
+		button.textContent = label;
+		button.addEventListener("click", handler);
+		buttons.append(button);
+	});
+	item.append(buttons);
+	return item;
+}
+
+// Affiche l'onglet Humeurs : formulaire, propositions en attente, humeurs du salon et humeurs retirées
+function renderMoodsTab()
+{
+	const owner = state.me.isOwner;
+	$("#mood-form-title").textContent = owner ? "Ajouter une humeur" : "Proposer une humeur";
+	$("#mood-form-hint").textContent = owner ? "En tant que créateur, ton humeur est ajoutée directement au salon." : "Le créateur du salon recevra ta proposition et pourra l'accepter.";
+	$("#mood-submit").textContent = owner ? "Ajouter" : "Proposer";
+
+	const pending = state.customMoods.filter(mood => mood.status === "pending");
+	const approved = state.customMoods.filter(mood => mood.status === "approved");
+	const archived = state.customMoods.filter(mood => mood.status === "archived");
+
+	$("#pending-card").hidden = !pending.length;
+	$("#pending-list").replaceChildren(...pending.map(mood =>
+	{
+		const actions = [];
+		if (owner)
+			actions.push(["Accepter", () => moodAction("PATCH", mood, "approve")], ["Refuser", () => moodAction("DELETE", mood), true]);
+		else if (mood.proposedBy?.id === state.me.id)
+			actions.push(["Annuler", () => moodAction("DELETE", mood), true]);
+		return moodRow(mood, actions);
+	}));
+
+	$("#no-custom").hidden = approved.length > 0;
+	$("#custom-list").replaceChildren(...approved.map(mood => moodRow(mood, owner ? [["Retirer", () => moodAction("DELETE", mood), true]] : [])));
+	$("#base-list").replaceChildren(...Object.values(MOODS).map(moodChip));
+
+	$("#archived-card").hidden = !owner || !archived.length;
+	$("#archived-list").replaceChildren(...archived.map(mood => moodRow(mood, [["Restaurer", () => moodAction("PATCH", mood, "restore")]])));
+
+	const badge = $("#moods-badge");
+	badge.hidden = !owner || !pending.length;
+	badge.textContent = pending.length;
+}
+
+// Remplit les listes déroulantes du formulaire et les suggestions d'emojis
+function initMoodForm()
+{
+	const fill = (select, levels) => select.replaceChildren(...levels.map(([value, label]) => new Option(label, value, false, value === 0)));
+	fill($("#mood-valence"), VALENCE_LEVELS);
+	fill($("#mood-energy"), ENERGY_LEVELS);
+	$("#emoji-suggestions").replaceChildren(...EMOJI_SUGGESTIONS.map(emoji =>
+	{
+		const button = document.createElement("button");
+		button.type = "button";
+		button.textContent = emoji;
+		button.addEventListener("click", () =>
+		{
+			$("#mood-emoji").value = emoji;
+			updateMoodPreview();
+		});
+		return button;
+	}));
+	updateMoodPreview();
+}
+
+// Met à jour l'aperçu de l'humeur en cours de création (et la couleur conseillée tant qu'on n'y a pas touché)
+function updateMoodPreview()
+{
+	const valence = Number($("#mood-valence").value);
+	const energy = Number($("#mood-energy").value);
+	if (!state.colorTouched)
+		$("#mood-color").value = defaultMoodColor(valence, energy);
+	const preview = $("#mood-preview");
+	preview.replaceChildren(moodChip({
+		emoji: $("#mood-emoji").value.trim() || "❔",
+		label: $("#mood-label").value.trim() || "Nom de l'humeur",
+		color: $("#mood-color").value
+	}));
+}
+
+// Envoie la nouvelle humeur (proposition, ou ajout direct pour le créateur)
+function onSubmitMood(event)
+{
+	event.preventDefault();
+	submitWith(event.target, async () =>
+	{
+		const emoji = $("#mood-emoji").value.trim();
+		if (!isSingleEmoji(emoji))
+			throw new Error("Choisis un seul emoji (touche une suggestion ou utilise le clavier emoji).");
+		const data = await request("POST", "moods", { memberKey: state.memberKey, body: {
+			salon: state.token,
+			emoji,
+			label: $("#mood-label").value,
+			valence: Number($("#mood-valence").value),
+			energy: Number($("#mood-energy").value),
+			color: $("#mood-color").value
+		} });
+		state.customMoods = data.moods;
+		buildMoods();
+		event.target.reset();
+		state.colorTouched = false;
+		initMoodForm();
+		toast(state.me.isOwner ? "Humeur ajoutée au salon !" : "Proposition envoyée au créateur du salon.");
+	});
+}
+
+// Accepte, refuse, retire ou restaure une humeur personnalisée
+async function moodAction(method, mood, action)
+{
+	if (method === "DELETE" && !confirm(`${mood.status === "pending" ? "Retirer la proposition" : "Retirer l'humeur"} « ${mood.emoji} ${mood.label} » ?`))
+		return;
+	try
+	{
+		const options = method === "DELETE"
+			? { query: { salon: state.token, id: mood.id }, memberKey: state.memberKey }
+			: { body: { salon: state.token, id: mood.id, action }, memberKey: state.memberKey };
+		const data = await request(method, "moods", options);
+		state.customMoods = data.moods;
+		buildMoods();
+		renderDay();
+	}
+	catch (error)
+	{
+		toast(error.message);
+	}
+}
+
 // Copie le contenu d'un champ dans le presse-papiers
 async function copyField(id)
 {
@@ -849,6 +1035,13 @@ function bindEvents()
 	$("#today-btn").addEventListener("click", () => goToDate(todayStr()));
 	$("#regenerate-btn").addEventListener("click", regenerateLink);
 	$("#rename-form").addEventListener("submit", onRename);
+	$("#mood-form").addEventListener("submit", onSubmitMood);
+	["#mood-emoji", "#mood-label", "#mood-valence", "#mood-energy"].forEach(selector => $(selector).addEventListener("input", updateMoodPreview));
+	$("#mood-color").addEventListener("input", () =>
+	{
+		state.colorTouched = true;
+		updateMoodPreview();
+	});
 	$("#code-form").addEventListener("submit", onSetCode);
 	$("#push-btn").addEventListener("click", togglePush);
 	$("#md-access-btn").addEventListener("click", generateAccessLink);
@@ -870,6 +1063,7 @@ async function init()
 {
 	bindEvents();
 	renderMoodPicker();
+	initMoodForm();
 	renderGallery();
 	if ("serviceWorker" in navigator)
 		navigator.serviceWorker.register("/sw.js").catch(error => console.warn("Service worker :", error));

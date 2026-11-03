@@ -972,3 +972,129 @@ select.text-input
 	display: block;
 	margin-bottom: 6px;
 }
+
+/* --- Onglet Humeurs --- */
+
+.mood-form-row
+{
+	display: flex;
+	gap: 12px;
+}
+
+.grow
+{
+	flex: 1;
+	min-width: 0;
+}
+
+.emoji-input
+{
+	width: 72px;
+	text-align: center;
+	font-size: 1.4rem;
+	padding: 6px;
+}
+
+.emoji-suggestions
+{
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: -6px 0 16px;
+}
+
+.emoji-suggestions button
+{
+	width: 36px;
+	height: 36px;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--bg);
+	font-size: 1.2rem;
+	cursor: pointer;
+}
+
+.emoji-suggestions button:hover
+{
+	border-color: var(--accent);
+}
+
+.color-input
+{
+	display: block;
+	width: 64px;
+	height: 40px;
+	margin-bottom: 16px;
+	padding: 2px;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--bg);
+	cursor: pointer;
+}
+
+.mood-preview
+{
+	margin: 0 0 16px;
+}
+
+.mood-preview .chip
+{
+	font-size: 1rem;
+	padding: 4px 12px;
+}
+
+.mood-list
+{
+	list-style: none;
+	margin: 12px 0 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.mood-list li
+{
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--border);
+}
+
+.mood-list li:last-child
+{
+	border-bottom: 0;
+	padding-bottom: 0;
+}
+
+.mood-row-text
+{
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	min-width: 0;
+}
+
+.mood-row-actions
+{
+	display: flex;
+	gap: 12px;
+	flex: none;
+}
+
+.base-title
+{
+	margin-top: 20px;
+}
+
+@media (max-width: 420px)
+{
+	.tab
+	{
+		padding: 6px 10px;
+		font-size: 0.9rem;
+	}
+}

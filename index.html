@@ -22,6 +22,7 @@
 		<nav id="room-tabs" class="tabs" role="tablist" hidden>
 			<button class="tab is-active" data-tab="journal" role="tab">Journal</button>
 			<button class="tab" data-tab="photos" role="tab">Galerie</button>
+			<button class="tab" data-tab="moods" role="tab">Humeurs <span id="moods-badge" class="badge" hidden></span></button>
 			<button class="tab" data-tab="settings" role="tab">Salon</button>
 		</nav>
 	</header>
@@ -149,6 +150,57 @@
 				</div>
 				<p id="no-photo" class="muted center">Aucune image déclarée dans <code>js/photos.js</code>.</p>
 				<div id="photo-grid" class="photo-grid"></div>
+			</section>
+
+			<section id="tab-moods" class="panel" hidden>
+				<div class="settings-grid">
+					<div class="column">
+						<form id="mood-form" class="card">
+							<h2 id="mood-form-title" class="section-title">Proposer une humeur</h2>
+							<p id="mood-form-hint" class="muted small"></p>
+							<div class="mood-form-row">
+								<div>
+									<label class="field-label" for="mood-emoji">Emoji</label>
+									<input id="mood-emoji" class="text-input emoji-input" maxlength="16" placeholder="?" autocomplete="off" required>
+								</div>
+								<div class="grow">
+									<label class="field-label" for="mood-label">Nom</label>
+									<input id="mood-label" class="text-input" maxlength="20" placeholder="Ex : Fêtard" required>
+								</div>
+							</div>
+							<div id="emoji-suggestions" class="emoji-suggestions" aria-label="Suggestions d'emojis"></div>
+							<label class="field-label" for="mood-valence">Ressenti</label>
+							<select id="mood-valence" class="text-input"></select>
+							<label class="field-label" for="mood-energy">Énergie</label>
+							<select id="mood-energy" class="text-input"></select>
+							<label class="field-label" for="mood-color">Couleur</label>
+							<input id="mood-color" class="color-input" type="color">
+							<p class="field-label">Aperçu</p>
+							<p id="mood-preview" class="mood-preview"></p>
+							<p class="hint muted small">Le ressenti et l'énergie servent à calculer l'ambiance de la journée et à choisir les images.</p>
+							<p class="form-error" hidden></p>
+							<button type="submit" id="mood-submit" class="primary-btn">Proposer</button>
+						</form>
+					</div>
+					<div class="column">
+						<div id="pending-card" class="card" hidden>
+							<h2 class="section-title">En attente de validation</h2>
+							<ul id="pending-list" class="mood-list"></ul>
+						</div>
+						<div class="card">
+							<h2 class="section-title">Humeurs du salon</h2>
+							<ul id="custom-list" class="mood-list"></ul>
+							<p id="no-custom" class="muted small">Aucune humeur personnalisée pour le moment.</p>
+							<h3 class="field-label base-title">Humeurs de base</h3>
+							<div id="base-list" class="chips"></div>
+						</div>
+						<div id="archived-card" class="card" hidden>
+							<h2 class="section-title">Humeurs retirées</h2>
+							<p class="muted small">Elles ne sont plus proposées, mais les anciens articles qui les utilisent les affichent toujours.</p>
+							<ul id="archived-list" class="mood-list"></ul>
+						</div>
+					</div>
+				</div>
 			</section>
 
 			<section id="tab-settings" class="panel" hidden>
