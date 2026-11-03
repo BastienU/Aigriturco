@@ -65,14 +65,15 @@ function analyzeText(text)
 	};
 }
 
-// Renvoie la clé de l'humeur la plus proche d'un point (valence, énergie) parmi les candidates
-function nearestMood(valence, energy, candidates)
+// Renvoie la clé de l'humeur la plus proche d'un point (valence, énergie) parmi les candidates,
+// en avantageant légèrement celles réellement choisies dans la journée (départage les humeurs proches)
+function nearestMood(valence, energy, candidates, moodCounts = {})
 {
 	let best = "neutre";
 	let bestDistance = Infinity;
 	for (const [key, mood] of Object.entries(candidates))
 	{
-		const distance = Math.hypot(mood.valence - valence, mood.energy - energy);
+		const distance = Math.hypot(mood.valence - valence, mood.energy - energy) - (moodCounts[key] ? 0.25 : 0);
 		if (distance < bestDistance)
 		{
 			best = key;
@@ -114,7 +115,7 @@ export function analyzeDay(entries, moods = MOODS, candidates = moods)
 	return {
 		valence,
 		energy,
-		mood: nearestMood(valence, energy, candidates),
+		mood: nearestMood(valence, energy, candidates, moodCounts),
 		moodCounts,
 		keywords: text.keywords,
 		textHits: text.hits,
