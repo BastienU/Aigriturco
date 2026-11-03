@@ -638,7 +638,7 @@ function leaveRoom()
 	if (!confirm("Sans ton lien d'accès personnel, tu ne pourras plus reprendre ce pseudo. Oublier ce salon ?"))
 		return;
 	session.forgetRoom(state.token);
-	location.href = "/";
+	location.href = "/?accueil";
 }
 
 // Change son pseudo
@@ -875,9 +875,16 @@ async function init()
 		navigator.serviceWorker.register("/sw.js").catch(error => console.warn("Service worker :", error));
 
 	const params = new URLSearchParams(location.search);
-	const token = params.get("salon");
+	let token = params.get("salon");
 	if (!token)
-		return showHome();
+	{
+		// Sans salon dans l'URL, on rouvre le dernier salon visité (sauf si on demande explicitement l'accueil)
+		const last = params.has("accueil") ? null : session.lastRoom();
+		if (!last)
+			return showHome();
+		token = last.token;
+		history.replaceState(null, "", `?salon=${encodeURIComponent(token)}`);
+	}
 
 	// Lien d'accès personnel : on mémorise la clé puis on la retire de la barre d'adresse
 	const recoveryKey = params.get("membre");

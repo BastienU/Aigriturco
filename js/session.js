@@ -34,6 +34,12 @@ export function findRoom(token)
 	return getRooms().find(room => room.token === token) || null;
 }
 
+// Renvoie le dernier salon visité où l'on a un compte (la liste est triée du plus récent au plus ancien)
+export function lastRoom()
+{
+	return getRooms().find(room => room.memberKey) || null;
+}
+
 // Ajoute ou met à jour un salon ; oldToken permet de suivre un lien régénéré
 export function saveRoom(room, oldToken = room.token)
 {
