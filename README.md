@@ -1,17 +1,32 @@
 # 📔 Humeur du jour
 
-Journal d'humeur quotidien : pour chaque jour, tu écris des anecdotes et tu choisis une humeur. Chaque entrée devient un petit « article » horodaté, et le site choisit parmi les **images du catalogue** celle qui colle le mieux à l'état d'esprit de la journée. Plus tu ajoutes d'entrées dans la journée, plus l'analyse est fine.
+Journal d'humeur partagé : on crée un **salon**, on partage son lien, et chaque membre y publie avec son pseudo ses anecdotes et son humeur du jour. Le site choisit parmi les **images du catalogue** celle qui colle le mieux à l'ambiance du salon, et une image pour chaque membre. Plus il y a d'articles dans la journée, plus l'analyse est fine.
 
 ## Fonctionnement
 
-- **Journal** : sélection de la date (aujourd'hui par défaut), anecdote + humeur, liste des entrées avec l'heure de rédaction, frise des 30 derniers jours colorée par humeur.
-- **Galerie** : affiche, en lecture seule, les images du catalogue avec leurs humeurs et mots-clés (et signale les fichiers introuvables).
-- **Choix de la photo** (`js/mood.js`) :
-	- chaque humeur est un point sur deux axes, *valence* (négatif → positif) et *énergie* (calme → agité) ;
-	- la journée = moyenne des humeurs des entrées, nuancée par un petit lexique appliqué aux anecdotes (avec gestion simple de la négation : « pas content ») ;
-	- chaque photo est notée selon sa distance à ce point, les humeurs qui lui sont associées et ses mots-clés retrouvés dans les anecdotes ;
-	- le site explique pourquoi il a choisi la photo.
-- **Données** : les entrées sont stockées dans le navigateur (IndexedDB), rien n'est envoyé sur un serveur. Export / import JSON dans l'onglet « Galerie » pour sauvegarder ou changer d'appareil.
+- **Accueil** : créer un salon (nom, pseudo, date de fermeture facultative), retrouver « Mes salons », ou ouvrir un lien reçu.
+- **Rejoindre** : la personne qui ouvre le lien choisit un pseudo (unique dans le salon).
+- **Journal** : date du jour par défaut, articles de tous les membres avec pseudo et heure, « Chacun sa journée » (humeur et image par membre), image du salon et frise des 30 derniers jours. Rafraîchissement automatique toutes les 20 s tant que la page est visible.
+- **Salon** : membres, lien d'invitation, lien d'accès personnel (pour retrouver son pseudo sur un autre appareil), régénération du lien par le créateur.
+- **Droits** : chacun supprime ses articles ; le créateur peut supprimer tous les articles et régénérer le lien. Après une régénération, l'ancien lien ne marche plus pour les nouveaux venus, mais les membres existants sont redirigés automatiquement.
+
+⚠️ Il n'y a pas de comptes : **toute personne qui possède le lien peut lire et écrire**.
+
+## Architecture
+
+- **Front** : HTML/CSS/JS sans framework (`index.html`, `css/`, `js/`).
+- **API** : fonctions serverless Vercel dans `api/` (`rooms`, `members`, `entries`). Les fichiers de `api/_lib/` ne sont pas exposés.
+- **Base de données** : Postgres Neon (offre gratuite), via la variable d'environnement `DATABASE_URL` ajoutée par l'intégration Vercel. Les tables sont créées automatiquement au premier appel.
+- **Identité** : chaque membre reçoit une clé secrète gardée dans son navigateur et envoyée dans l'en-tête `X-Member-Key`. La base n'en stocke que le hash SHA-256.
+
+## Lancer en local
+
+```bash
+npm install
+npm run dev
+```
+
+Puis ouvrir http://localhost:3000. Le serveur local imite Vercel et utilise une base Postgres embarquée (PGlite) stockée dans `.data/` : aucune connexion à la base Neon n'est nécessaire. `DEV_DB=memory npm run dev` repart d'une base vide à chaque lancement.
 
 ## Ajouter des images
 
@@ -30,38 +45,22 @@ export const PHOTOS = [
 
 Une faute de frappe dans une humeur est signalée dans la console du navigateur (F12).
 
-## Lancer en local
+## Déploiement
 
-```bash
-python3 -m http.server 4173
-```
-
-Puis ouvrir http://localhost:4173 (les modules ES ne fonctionnent pas en ouvrant directement `index.html` en `file://`).
-
-## Déployer sur Vercel
-
-Site 100 % statique : aucune configuration ni build nécessaire.
-
-**Option 1 – via GitHub (recommandé, redéploiement automatique à chaque push)**
-1. Créer un dépôt sur GitHub et y pousser ce projet.
-2. Sur https://vercel.com/new, importer le dépôt.
-3. Framework Preset : *Other*, laisser Build Command et Output Directory vides, puis *Deploy*.
-
-**Option 2 – via la CLI**
-
-```bash
-npx vercel
-npx vercel --prod
-```
+Chaque push sur `main` est déployé par Vercel. Prérequis côté Vercel : la base Neon reliée au projet (onglet *Storage*), preset *Other*, sans commande de build.
 
 ## Structure
 
 ```
-index.html        page unique (2 onglets)
-css/style.css     styles (clair / sombre, responsive)
-js/app.js         interface et événements
-js/mood.js        analyse de l'humeur et choix de la photo
-js/photos.js      catalogue des images (chemin, humeurs, mots-clés)
-images/           fichiers des images
-js/storage.js     accès IndexedDB
+index.html            page unique (accueil, rejoindre, salon)
+css/style.css         styles (clair / sombre, responsive)
+js/app.js             interface et navigation
+js/api.js             appels à l'API
+js/session.js         salons mémorisés dans le navigateur
+js/mood.js            analyse de l'humeur et choix de l'image (partagé avec l'API)
+js/photos.js          catalogue des images
+images/               fichiers des images
+api/                  fonctions serverless (rooms, members, entries)
+api/_lib/             accès base de données et utilitaires HTTP
+scripts/dev-server.js serveur de développement local
 ```
