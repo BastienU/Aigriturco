@@ -129,6 +129,12 @@ async function remove(req)
 		if (!exists)
 			throw new HttpError(404, "Membre destinataire introuvable.");
 		await db()`UPDATE entries SET member_id = ${target} WHERE member_id = ${id} AND room_id = ${room.id}`;
+		// Ses réactions sont transférées aussi, sauf celles que le destinataire avait déjà mises
+		await db()`
+			UPDATE entry_reactions r SET member_id = ${target}
+			WHERE r.member_id = ${id} AND NOT EXISTS (
+				SELECT 1 FROM entry_reactions x WHERE x.entry_id = r.entry_id AND x.member_id = ${target} AND x.mood = r.mood
+			)`;
 	}
 	const deleted = await db()`DELETE FROM members WHERE id = ${id} AND room_id = ${room.id} RETURNING id`;
 	if (!deleted.length)

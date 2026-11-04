@@ -2,6 +2,7 @@ import { db } from "./_lib/db.js";
 import { HttpError, handler, cleanText, cleanDate, findRoom, requireMember } from "./_lib/http.js";
 import { findMood } from "./_lib/moods.js";
 import { notifyNewEntry } from "./_lib/push.js";
+import { listReactions } from "./_lib/reactions.js";
 
 const MAX_RANGE_DAYS = 400;
 
@@ -33,7 +34,12 @@ async function list(req)
 		FROM entries e JOIN members m ON m.id = e.member_id
 		WHERE e.room_id = ${room.id} AND e.day BETWEEN ${from} AND ${to}
 		ORDER BY e.created_at DESC`;
-	return { entries: rows.map(toEntry) };
+	const reactions = await listReactions(db()`
+		SELECT r.entry_id, r.mood, r.member_id, m.pseudo, r.created_at
+		FROM entry_reactions r JOIN entries e ON e.id = r.entry_id JOIN members m ON m.id = r.member_id
+		WHERE e.room_id = ${room.id} AND e.day BETWEEN ${from} AND ${to}
+		ORDER BY r.created_at`);
+	return { entries: rows.map(row => ({ ...toEntry(row), reactions: reactions.get(row.id) || [] })) };
 }
 
 // POST /api/entries : publie un article dans le salon
@@ -65,7 +71,7 @@ async function create(req)
 		// Une notification ratée ne doit pas empêcher la publication
 		console.error("Notifications :", error);
 	}
-	return { status: 201, body: { entry: toEntry({ ...row, pseudo: member.pseudo }) } };
+	return { status: 201, body: { entry: { ...toEntry({ ...row, pseudo: member.pseudo }), reactions: [] } } };
 }
 
 // DELETE /api/entries?salon=…&id=… : supprime son article (le créateur du salon peut tout supprimer)

@@ -102,4 +102,13 @@ async function createSchema()
 		created_at timestamptz NOT NULL DEFAULT now()
 	)`;
 	await sql`CREATE UNIQUE INDEX IF NOT EXISTS room_moods_label ON room_moods (room_id, lower(label))`;
+
+	// v4 : réactions des membres aux articles (une humeur du salon par réaction)
+	await sql`CREATE TABLE IF NOT EXISTS entry_reactions (
+		entry_id uuid NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+		member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+		mood text NOT NULL,
+		created_at timestamptz NOT NULL DEFAULT now(),
+		PRIMARY KEY (entry_id, member_id, mood)
+	)`;
 }
