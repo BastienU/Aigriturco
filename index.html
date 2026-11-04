@@ -113,7 +113,9 @@
 
 				<div class="layout">
 					<div class="column">
-						<form id="entry-form" class="card">
+						<details id="composer" class="card composer">
+						<summary>✍️ Écrire un article</summary>
+						<form id="entry-form">
 							<label class="field-label" for="anecdote">Une anecdote, un moment, une pensée…</label>
 							<textarea id="anecdote" rows="4" maxlength="2000" placeholder="Ex : déjeuner au soleil avec Léa, on a beaucoup ri."></textarea>
 							<span class="field-label">Ton humeur</span>
@@ -121,6 +123,7 @@
 							<p class="form-error" hidden></p>
 							<button type="submit" class="primary-btn">Publier dans le salon</button>
 						</form>
+						</details>
 
 						<div id="members-day" class="members-day"></div>
 						<div id="filter-bar" class="filter-bar" hidden>

@@ -856,6 +856,7 @@ function onSubmitEntry(event)
 		} });
 		$("#anecdote").value = "";
 		selectMood(null);
+		$("#composer").open = false;
 		await refreshEntries();
 	});
 }
