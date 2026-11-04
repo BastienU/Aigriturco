@@ -424,18 +424,9 @@ textarea:focus, .date-bar input:focus
 	animation: pop 0.35s ease-out;
 }
 
-.hl-empty
-{
-	padding: 24px;
-	border: 2px dashed var(--border);
-	border-radius: 12px;
-	text-align: center;
-	color: var(--muted);
-}
-
 .hl-mood
 {
-	margin: 16px 0 4px;
+	margin: 0 0 8px;
 	font-family: "Fraunces", Georgia, serif;
 	font-size: 1.5rem;
 	font-weight: 700;
@@ -462,61 +453,6 @@ textarea:focus, .date-bar input:focus
 	height: 100%;
 	background: var(--mood-color, var(--accent));
 	transition: width 0.4s;
-}
-
-.photo-grid
-{
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-	gap: 16px;
-	margin: 16px 0;
-}
-
-.photo-card
-{
-	margin: 0;
-	padding: 0;
-	overflow: hidden;
-}
-
-.photo-card img
-{
-	display: block;
-	width: 100%;
-	aspect-ratio: 4 / 3;
-	object-fit: cover;
-}
-
-.photo-card figcaption
-{
-	padding: 12px;
-}
-
-.photo-tags, .photo-src
-{
-	margin: 8px 0 0;
-	overflow-wrap: anywhere;
-}
-
-.photo-tags:empty
-{
-	display: none;
-}
-
-.photo-src
-{
-	font-family: ui-monospace, monospace;
-}
-
-.photo-card.is-missing img
-{
-	opacity: 0;
-}
-
-.photo-card.is-missing .photo-src::after
-{
-	content: " · fichier introuvable";
-	color: var(--danger);
 }
 
 .chips
@@ -1345,4 +1281,28 @@ select.text-input
 .popover-action
 {
 	width: 100%;
+}
+
+/* --- Appui long sur un article --- */
+
+.entry.is-pressing
+{
+	transform: scale(0.98);
+	transition: transform 0.2s;
+}
+
+.hl-photo
+{
+	margin-top: 12px;
+}
+
+/* Sur écran tactile, l'appui long sert aux réactions : pas de sélection de texte ni de menu système */
+@media (hover: none)
+{
+	.entry
+	{
+		-webkit-user-select: none;
+		user-select: none;
+		-webkit-touch-callout: none;
+	}
 }

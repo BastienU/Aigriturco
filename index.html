@@ -21,7 +21,6 @@
 		<a class="brand" href="/?accueil" title="Accueil : mes salons">📔 Humeur du jour</a>
 		<nav id="room-tabs" class="tabs" role="tablist" hidden>
 			<button class="tab is-active" data-tab="journal" role="tab">Journal</button>
-			<button class="tab" data-tab="photos" role="tab">Galerie</button>
 			<button class="tab" data-tab="moods" role="tab">Humeurs <span id="moods-badge" class="badge" hidden></span></button>
 			<button class="tab" data-tab="settings" role="tab">Salon</button>
 		</nav>
@@ -136,17 +135,17 @@
 					</div>
 
 					<aside id="highlight" class="card highlight" hidden>
-						<p class="eyebrow">L'image du salon</p>
-						<img id="hl-photo" class="hl-photo" alt="Image choisie pour la journée du salon" hidden>
-						<div id="hl-empty" class="hl-empty" hidden>
-							<p>Aucune image disponible pour le moment.</p>
-						</div>
+						<p class="eyebrow">Ambiance du salon</p>
 						<p id="hl-mood" class="hl-mood"></p>
-						<ul id="hl-reasons" class="hl-reasons"></ul>
 						<div class="confidence">
 							<div class="confidence-track"><div id="hl-confidence" class="confidence-fill"></div></div>
 							<p id="hl-confidence-label" class="muted small"></p>
 						</div>
+						<details id="hl-image" class="calc" hidden>
+							<summary>🖼️ Image du jour</summary>
+							<img id="hl-photo" class="hl-photo" alt="Image choisie pour la journée du salon">
+							<ul id="hl-reasons" class="hl-reasons"></ul>
+						</details>
 						<details class="calc">
 							<summary>Comment est calculée l'ambiance ?</summary>
 							<p class="muted small">Chaque humeur est un point : ressenti (de -2 à +2) et énergie (de -2 à +2). On calcule le point de chaque membre (moyenne de ses articles, nuancée par les mots de ses anecdotes), puis la moyenne des membres : chacun compte pour une voix, quel que soit son nombre d'articles.</p>
@@ -158,15 +157,6 @@
 						</details>
 					</aside>
 				</div>
-			</section>
-
-			<section id="tab-photos" class="panel" hidden>
-				<div class="card">
-					<h2 class="section-title">Les images</h2>
-					<p class="muted">Voici les images parmi lesquelles le site choisit celle de chaque journée, avec les humeurs et mots-clés qui leur sont associés.</p>
-				</div>
-				<p id="no-photo" class="muted center">Aucune image déclarée dans <code>js/photos.js</code>.</p>
-				<div id="photo-grid" class="photo-grid"></div>
 			</section>
 
 			<section id="tab-moods" class="panel" hidden>
@@ -326,17 +316,6 @@
 				<span class="avatar"></span>
 				<span class="member-day-name"></span>
 				<span class="member-day-mood"></span>
-			</figcaption>
-		</figure>
-	</template>
-
-	<template id="photo-template">
-		<figure class="photo-card card">
-			<img alt="">
-			<figcaption>
-				<div class="chips"></div>
-				<p class="photo-tags muted small"></p>
-				<p class="photo-src muted small"></p>
 			</figcaption>
 		</figure>
 	</template>
