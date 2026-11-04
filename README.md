@@ -8,6 +8,7 @@ Journal d'humeur partagé : on crée un **salon**, on partage son lien, et chaqu
 - **Accueil** : créer un salon (nom, pseudo, date de fermeture facultative), retrouver « Mes salons », ou ouvrir un lien reçu.
 - **Rejoindre** : la personne qui ouvre le lien choisit un pseudo (unique dans le salon) et un **code secret**. Sur un autre appareil (ou si le navigateur a tout oublié), « J'ai déjà un pseudo » + le code permettent de reprendre son compte. Après 5 codes faux, le pseudo est bloqué 15 minutes.
 - **Journal** : date du jour par défaut, articles de tous les membres avec pseudo et heure, « Chacun sa journée » (humeur et image par membre), image du salon et frise des 30 derniers jours. Rafraîchissement automatique toutes les 20 s tant que la page est visible.
+- **Réactions** : sous chaque article, le bouton « 😊 + » permet de réagir avec une humeur du salon (de base ou validée dans l'onglet Humeurs). Un clic sur une réaction montre qui l'a ajoutée et permet d'ajouter ou retirer la sienne.
 - **Filtre par auteur** : un clic sur un article (ou sur une carte « Chacun sa journée ») n'affiche plus que les articles de cette personne ; la croix, la touche Échap ou un clic ailleurs réaffichent tout.
 - **Ambiance du salon** (`analyzeRoomDay` dans `js/mood.js`) : chaque humeur est un point (ressenti, énergie) entre -2 et +2. On calcule le point de chaque membre (moyenne de ses articles, nuancée par les mots de ses anecdotes), puis la moyenne des membres : **une voix par personne**. L'humeur la plus proche l'emporte, avec un petit avantage pour celles retenues par les membres. « Neutre » n'est retenu que si au moins la moitié des membres l'a choisi. Le détail du calcul est consultable sous l'image du salon.
 - **Salon** : membres, lien d'invitation, profil (renommer, changer son code secret), notifications, lien d'accès personnel, régénération du lien par le créateur.
@@ -82,7 +83,7 @@ images/               fichiers des images
 sw.js                 service worker (réception des notifications)
 manifest.webmanifest  manifeste de l'application installable
 icons/                icônes de l'application
-api/                  fonctions serverless (rooms, members, entries, moods, push)
+api/                  fonctions serverless (rooms, members, entries, moods, reactions, push)
 api/_lib/             accès base de données et utilitaires HTTP
 scripts/dev-server.js serveur de développement local
 ```
