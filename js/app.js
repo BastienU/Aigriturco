@@ -25,7 +25,8 @@ const state = {
 	allMoods: MOODS,
 	activeMoods: MOODS,
 	colorTouched: false,
-	filterMember: null
+	filterMember: null,
+	popover: null
 };
 
 const EMOJI_SUGGESTIONS = ["🥳", "😍", "🥰", "🤗", "😎", "🤪", "😇", "🥲", "😤", "😩", "🥺", "😬", "🙃", "🤯", "😶", "🫠", "🤓", "😋", "🤢", "🥶", "🥵", "💪", "🎉", "☀️"];
@@ -324,6 +325,8 @@ function renderDay()
 		state.filterMember = null;
 	const room = analyzeRoom(entries);
 	renderEntries(entries);
+	if (state.popover)
+		renderPopover();
 	renderMembersDay(room);
 	renderHighlight(room);
 	renderHistory();
@@ -381,12 +384,160 @@ function renderEntries(entries)
 		node.querySelector(".entry").addEventListener("click", event =>
 		{
 			// Pas de filtre si on clique sur la croix ou si on sélectionne du texte
-			if (event.target.closest(".entry-delete") || getSelection().toString())
+			if (event.target.closest(".entry-delete, .entry-reactions") || getSelection().toString())
 				return;
 			setFilter(entry.memberId);
 		});
+		renderReactions(node.querySelector(".entry-reactions"), entry);
 		container.append(node);
 	});
+}
+
+// Affiche les réactions d'un article (emoji + nombre) et le bouton pour en ajouter une
+function renderReactions(container, entry)
+{
+	container.replaceChildren();
+	(entry.reactions || []).forEach(reaction =>
+	{
+		const mood = state.allMoods[reaction.mood];
+		if (!mood)
+			return;
+		const mine = reaction.members.some(member => member.id === state.me.id);
+		const button = document.createElement("button");
+		button.type = "button";
+		button.className = mine ? "reaction-chip is-mine" : "reaction-chip";
+		button.style.setProperty("--mood-color", mood.color);
+		button.textContent = `${mood.emoji} ${reaction.members.length}`;
+		button.title = `${mood.label} : ${reaction.members.map(member => member.pseudo).join(", ")}`;
+		button.addEventListener("click", () => openPopover({ entryId: entry.id, mode: "who", mood: reaction.mood }, button));
+		container.append(button);
+	});
+	const add = document.createElement("button");
+	add.type = "button";
+	add.className = "reaction-add";
+	add.textContent = "😊 +";
+	add.title = "Ajouter une réaction";
+	add.setAttribute("aria-label", "Ajouter une réaction");
+	add.addEventListener("click", () => openPopover({ entryId: entry.id, mode: "picker" }, add));
+	container.append(add);
+}
+
+// Ouvre la fenêtre des réactions sous le bouton cliqué (ou la ferme si on reclique dessus).
+// Elle est positionnée dans la page (et non à l'écran) pour défiler avec l'article
+function openPopover(popover, anchor)
+{
+	const same = state.popover && state.popover.entryId === popover.entryId && state.popover.mode === popover.mode && state.popover.mood === popover.mood;
+	if (same)
+		return closePopover();
+	state.popover = popover;
+	renderPopover();
+	const box = $("#reaction-popover");
+	const rect = anchor.getBoundingClientRect();
+	const width = box.offsetWidth;
+	const height = box.offsetHeight;
+	const below = rect.bottom + 6 + height <= innerHeight;
+	const viewportWidth = document.documentElement.clientWidth;
+	box.style.left = `${scrollX + Math.max(8, Math.min(rect.left, viewportWidth - width - 8))}px`;
+	box.style.top = `${scrollY + (below ? rect.bottom + 6 : Math.max(8, rect.top - height - 6))}px`;
+}
+
+// Ferme la fenêtre des réactions
+function closePopover()
+{
+	state.popover = null;
+	$("#reaction-popover").hidden = true;
+}
+
+// Remplit la fenêtre des réactions selon son mode (choix d'une réaction ou liste des membres)
+function renderPopover()
+{
+	const box = $("#reaction-popover");
+	const popover = state.popover;
+	const entry = popover && state.entries.find(item => item.id === popover.entryId);
+	if (!entry)
+		return closePopover();
+	const reactions = entry.reactions || [];
+	const myMoods = new Set(reactions.filter(reaction => reaction.members.some(member => member.id === state.me.id)).map(reaction => reaction.mood));
+	box.replaceChildren();
+	box.hidden = false;
+
+	if (popover.mode === "picker")
+	{
+		const title = document.createElement("p");
+		title.className = "popover-title";
+		title.textContent = "Réagir avec…";
+		const grid = document.createElement("div");
+		grid.className = "popover-grid";
+		Object.entries(state.activeMoods).forEach(([key, mood]) =>
+		{
+			const button = document.createElement("button");
+			button.type = "button";
+			button.className = myMoods.has(key) ? "is-mine" : "";
+			button.style.setProperty("--mood-color", mood.color);
+			button.title = mood.label;
+			const emoji = document.createElement("span");
+			emoji.textContent = mood.emoji;
+			button.append(emoji, mood.label);
+			button.addEventListener("click", async () =>
+			{
+				await toggleReaction(entry, key, !myMoods.has(key));
+				closePopover();
+			});
+			grid.append(button);
+		});
+		box.append(title, grid);
+		return;
+	}
+
+	const mood = state.allMoods[popover.mood];
+	const reaction = reactions.find(item => item.mood === popover.mood);
+	if (!mood || !reaction)
+		return closePopover();
+	const title = document.createElement("p");
+	title.className = "popover-title";
+	title.textContent = `${mood.emoji} ${mood.label} · ${reaction.members.length}`;
+	const list = document.createElement("ul");
+	list.className = "popover-members";
+	reaction.members.forEach(member =>
+	{
+		const item = document.createElement("li");
+		const avatar = document.createElement("span");
+		avatar.className = "avatar";
+		fillAvatar(avatar, member.pseudo);
+		item.append(avatar, member.pseudo + (member.id === state.me.id ? " (toi)" : ""));
+		list.append(item);
+	});
+	box.append(title, list);
+
+	const mine = myMoods.has(popover.mood);
+	if (mine || state.activeMoods[popover.mood])
+	{
+		const button = document.createElement("button");
+		button.type = "button";
+		button.className = mine ? "ghost-btn popover-action" : "primary-btn popover-action";
+		button.textContent = mine ? "Retirer ma réaction" : "Ajouter la mienne";
+		button.addEventListener("click", () => toggleReaction(entry, popover.mood, !mine));
+		box.append(button);
+	}
+}
+
+// Ajoute ou retire sa réaction sur un article, puis met à jour l'affichage
+async function toggleReaction(entry, mood, add)
+{
+	try
+	{
+		const data = add
+			? await request("POST", "reactions", { memberKey: state.memberKey, body: { salon: state.token, entryId: entry.id, mood } })
+			: await request("DELETE", "reactions", { memberKey: state.memberKey, query: { salon: state.token, entryId: entry.id, mood } });
+		entry.reactions = data.reactions;
+		renderDay();
+		if (state.popover)
+			renderPopover();
+	}
+	catch (error)
+	{
+		toast(error.message);
+	}
 }
 
 // Affiche, pour chaque membre ayant écrit ce jour-là, son humeur et son image (clic : filtre ses articles)
@@ -1131,16 +1282,23 @@ function bindEvents()
 	document.querySelectorAll("[data-tab]").forEach(tab => tab.addEventListener("click", () => showTab(tab.dataset.tab)));
 	document.querySelectorAll("[data-copy]").forEach(button => button.addEventListener("click", () => copyField(button.dataset.copy)));
 	window.addEventListener("popstate", () => location.reload());
+	window.addEventListener("resize", closePopover);
 	$("#filter-clear").addEventListener("click", clearFilter);
 	document.addEventListener("click", event =>
 	{
 		// Un clic en dehors des articles et des cartes membres réaffiche tous les articles
-		if (state.filterMember && !event.target.closest(".entry, .member-day, #filter-bar"))
+		if (state.popover && !event.target.closest("#reaction-popover, .entry-reactions"))
+			closePopover();
+		if (state.filterMember && !event.target.closest(".entry, .member-day, #filter-bar, #reaction-popover"))
 			clearFilter();
 	});
 	document.addEventListener("keydown", event =>
 	{
-		if (event.key === "Escape")
+		if (event.key !== "Escape")
+			return;
+		if (state.popover)
+			closePopover();
+		else
 			clearFilter();
 	});
 	document.addEventListener("visibilitychange", () =>

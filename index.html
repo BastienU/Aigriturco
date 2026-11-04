@@ -280,6 +280,9 @@
 
 	<div id="toast" class="toast" role="status" hidden></div>
 
+	<!-- Fenêtre flottante des réactions : choix d'une réaction, ou liste des membres ayant réagi -->
+	<div id="reaction-popover" class="popover" role="dialog" hidden></div>
+
 	<!-- Gestion d'un membre par le créateur -->
 	<dialog id="member-dialog" class="dialog">
 		<form method="dialog" class="dialog-close-form">
@@ -309,6 +312,7 @@
 				<button class="icon-btn entry-delete" aria-label="Supprimer" hidden>✕</button>
 			</header>
 			<p class="entry-text"></p>
+			<div class="entry-reactions"></div>
 		</article>
 	</template>
 
