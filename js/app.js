@@ -26,8 +26,11 @@ const state = {
 	activeMoods: MOODS,
 	colorTouched: false,
 	filterMember: null,
-	popover: null
+	popover: null,
+	ignoreClickUntil: 0
 };
+
+const LONG_PRESS_MS = 450;
 
 const EMOJI_SUGGESTIONS = ["🥳", "😍", "🥰", "🤗", "😎", "🤪", "😇", "🥲", "😤", "😩", "🥺", "😬", "🙃", "🤯", "😶", "🫠", "🤓", "😋", "🤢", "🥶", "🥵", "💪", "🎉", "☀️"];
 
@@ -381,13 +384,15 @@ function renderEntries(entries)
 		const remove = node.querySelector(".entry-delete");
 		remove.hidden = !(entry.memberId === state.me.id || state.me.isOwner);
 		remove.addEventListener("click", () => removeEntry(entry.id));
-		node.querySelector(".entry").addEventListener("click", event =>
+		const article = node.querySelector(".entry");
+		article.addEventListener("click", event =>
 		{
-			// Pas de filtre si on clique sur la croix ou si on sélectionne du texte
-			if (event.target.closest(".entry-delete, .entry-reactions") || getSelection().toString())
+			// Pas de filtre juste après un appui long, sur la croix, les réactions, ou si on sélectionne du texte
+			if (Date.now() < state.ignoreClickUntil || event.target.closest(".entry-delete, .entry-reactions") || getSelection().toString())
 				return;
 			setFilter(entry.memberId);
 		});
+		bindLongPress(article, point => openPicker(entry, point));
 		renderReactions(node.querySelector(".entry-reactions"), entry);
 		container.append(node);
 	});
@@ -422,12 +427,12 @@ function renderReactions(container, entry)
 	container.append(add);
 }
 
-// Ouvre la fenêtre des réactions sous le bouton cliqué (ou la ferme si on reclique dessus).
+// Ouvre la fenêtre des réactions sous le bouton cliqué (ou la ferme si on reclique dessus, sauf si toggle vaut false).
 // Elle est positionnée dans la page (et non à l'écran) pour défiler avec l'article
-function openPopover(popover, anchor)
+function openPopover(popover, anchor, toggle = true)
 {
 	const same = state.popover && state.popover.entryId === popover.entryId && state.popover.mode === popover.mode && state.popover.mood === popover.mood;
-	if (same)
+	if (same && toggle)
 		return closePopover();
 	state.popover = popover;
 	renderPopover();
@@ -439,6 +444,67 @@ function openPopover(popover, anchor)
 	const viewportWidth = document.documentElement.clientWidth;
 	box.style.left = `${scrollX + Math.max(8, Math.min(rect.left, viewportWidth - width - 8))}px`;
 	box.style.top = `${scrollY + (below ? rect.bottom + 6 : Math.max(8, rect.top - height - 6))}px`;
+}
+
+// Ouvre le choix des réactions à l'endroit où l'on a appuyé longuement sur un article
+function openPicker(entry, point)
+{
+	const anchor = { getBoundingClientRect: () => new DOMRect(point.x, point.y, 0, 0) };
+	openPopover({ entryId: entry.id, mode: "picker" }, anchor, false);
+}
+
+// Détecte un appui long (doigt ou souris maintenu sans bouger) et appelle action avec la position de l'appui
+function bindLongPress(element, action)
+{
+	let timer = null;
+	let start = null;
+	let fired = false;
+	const cancel = () =>
+	{
+		clearTimeout(timer);
+		timer = null;
+		element.classList.remove("is-pressing");
+	};
+	element.addEventListener("pointerdown", event =>
+	{
+		fired = false;
+		if (event.button !== 0 || event.target.closest("button"))
+			return;
+		start = { x: event.clientX, y: event.clientY };
+		element.classList.add("is-pressing");
+		timer = setTimeout(() =>
+		{
+			cancel();
+			fired = true;
+			navigator.vibrate?.(15);
+			action(start);
+		}, LONG_PRESS_MS);
+	});
+	element.addEventListener("pointermove", event =>
+	{
+		// On annule si le doigt bouge (l'utilisateur fait défiler la page)
+		if (timer && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10)
+			cancel();
+	});
+	element.addEventListener("pointerup", () =>
+	{
+		cancel();
+		// Le « clic » qui suit la fin d'un appui long ne doit ni filtrer ni fermer la fenêtre
+		if (fired)
+			state.ignoreClickUntil = Date.now() + 400;
+	});
+	element.addEventListener("pointercancel", cancel);
+	element.addEventListener("pointerleave", cancel);
+	element.addEventListener("contextmenu", event =>
+	{
+		// Clic droit sur ordinateur, ou menu système sur mobile : on ouvre aussi les réactions
+		event.preventDefault();
+		if (fired)
+			return;
+		cancel();
+		fired = true;
+		action({ x: event.clientX, y: event.clientY });
+	});
 }
 
 // Ferme la fenêtre des réactions
@@ -595,14 +661,14 @@ function renderHighlight(analysis)
 	$("#hl-confidence").style.width = `${Math.round(analysis.confidence * 100)}%`;
 	$("#hl-confidence-label").textContent = `Basé sur ${analysis.count} article${analysis.count > 1 ? "s" : ""} de ${authors} membre${authors > 1 ? "s" : ""}`;
 
+	// L'image du jour est repliée, et cachée tant qu'aucune image n'est déclarée dans js/photos.js
 	const match = pickPhoto(analysis, state.photos, state.date, state.allMoods);
-	const img = $("#hl-photo");
 	const reasons = $("#hl-reasons");
 	reasons.replaceChildren();
-	img.hidden = !match;
-	$("#hl-empty").hidden = Boolean(match);
+	$("#hl-image").hidden = !match;
 	if (!match)
 		return;
+	const img = $("#hl-photo");
 
 	img.src = match.photo.src;
 	const lines = match.reasons.length ? match.reasons : ["La plus proche parmi les images disponibles"];
@@ -730,38 +796,6 @@ function renderSettings()
 			item.append(manage);
 		}
 		list.append(item);
-	});
-}
-
-// Affiche la galerie (lecture seule) des images déclarées dans js/photos.js
-function renderGallery()
-{
-	const grid = $("#photo-grid");
-	const template = $("#photo-template");
-	grid.replaceChildren();
-	$("#no-photo").hidden = state.photos.length > 0;
-
-	state.photos.forEach(photo =>
-	{
-		const node = template.content.cloneNode(true);
-		const img = node.querySelector("img");
-		img.src = photo.src;
-		img.alt = photo.src;
-		img.loading = "lazy";
-		img.addEventListener("error", () => img.closest(".photo-card").classList.add("is-missing"));
-		node.querySelector(".photo-src").textContent = photo.src;
-
-		const chips = node.querySelector(".chips");
-		photo.moods.forEach(key =>
-		{
-			const chip = document.createElement("span");
-			chip.className = "chip is-selected";
-			chip.style.setProperty("--mood-color", MOODS[key].color);
-			chip.textContent = `${MOODS[key].emoji} ${MOODS[key].label}`;
-			chips.append(chip);
-		});
-		node.querySelector(".photo-tags").textContent = photo.tags;
-		grid.append(node);
 	});
 }
 
@@ -1288,6 +1322,8 @@ function bindEvents()
 	document.addEventListener("click", event =>
 	{
 		// Un clic en dehors des articles et des cartes membres réaffiche tous les articles
+		if (Date.now() < state.ignoreClickUntil)
+			return;
 		if (state.popover && !event.target.closest("#reaction-popover, .entry-reactions"))
 			closePopover();
 		if (state.filterMember && !event.target.closest(".entry, .member-day, #filter-bar, #reaction-popover"))
@@ -1315,7 +1351,6 @@ async function init()
 	bindEvents();
 	renderMoodPicker();
 	initMoodForm();
-	renderGallery();
 	if ("serviceWorker" in navigator)
 		navigator.serviceWorker.register("/sw.js").catch(error => console.warn("Service worker :", error));
 
