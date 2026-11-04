@@ -757,23 +757,28 @@ button:disabled
 .members-day-grid
 {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-	gap: 12px;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 8px;
 }
 
+/* Carte compacte : vignette à gauche, pseudo et humeur à droite */
 .member-day
 {
+	display: flex;
+	align-items: center;
 	margin: 0;
 	padding: 0;
 	overflow: hidden;
-	border-top: 4px solid var(--mood-color);
+	border-left: 4px solid var(--mood-color);
+	border-radius: 12px;
 }
 
 .member-day img
 {
 	display: block;
-	width: 100%;
-	aspect-ratio: 1;
+	flex: none;
+	width: 48px;
+	height: 48px;
 	object-fit: cover;
 }
 
@@ -783,23 +788,25 @@ button:disabled
 	content: attr(data-emoji);
 	display: grid;
 	place-items: center;
-	aspect-ratio: 1;
-	font-size: 3rem;
+	flex: none;
+	width: 48px;
+	height: 48px;
+	font-size: 1.6rem;
 	background: color-mix(in srgb, var(--mood-color) 18%, var(--surface));
 }
 
 .member-day figcaption
 {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	gap: 0 8px;
-	align-items: center;
-	padding: 10px;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	padding: 4px 10px;
+	line-height: 1.3;
 }
 
 .member-day .avatar
 {
-	grid-row: span 2;
+	display: none;
 }
 
 .member-day-name
@@ -1119,7 +1126,7 @@ select.text-input
 
 .member-day:hover
 {
-	transform: translateY(-2px);
+	transform: translateY(-1px);
 }
 
 .member-day.is-filtered
@@ -1151,6 +1158,19 @@ select.text-input
 {
 	width: 32px;
 	height: 32px;
+}
+
+.composer summary
+{
+	cursor: pointer;
+	font-weight: 600;
+	font-size: 1.05rem;
+	list-style-position: inside;
+}
+
+.composer[open] summary
+{
+	margin-bottom: 16px;
 }
 
 .calc
