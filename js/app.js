@@ -1321,11 +1321,19 @@ function bindEvents()
 	$("#filter-clear").addEventListener("click", clearFilter);
 	document.addEventListener("click", event =>
 	{
+		// Fenêtre des réactions ouverte : un clic en dehors la ferme et ne fait rien d'autre (ni filtre, ni bouton, ni lien).
+		// Écouté en phase de capture pour passer avant tous les autres gestionnaires de clic
+		if (!state.popover || Date.now() < state.ignoreClickUntil || event.target.closest("#reaction-popover"))
+			return;
+		event.preventDefault();
+		event.stopPropagation();
+		closePopover();
+	}, true);
+	document.addEventListener("click", event =>
+	{
 		// Un clic en dehors des articles et des cartes membres réaffiche tous les articles
 		if (Date.now() < state.ignoreClickUntil)
 			return;
-		if (state.popover && !event.target.closest("#reaction-popover, .entry-reactions"))
-			closePopover();
 		if (state.filterMember && !event.target.closest(".entry, .member-day, #filter-bar, #reaction-popover"))
 			clearFilter();
 	});
