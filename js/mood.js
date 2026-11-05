@@ -79,13 +79,11 @@ function rankMoods(valence, energy, candidates, moodCounts = {})
 	}).sort((a, b) => a.score - b.score);
 }
 
-// Retire « Neutre » des candidates sauf s'il a été choisi au moins une fois sur deux
-function withoutRareNeutral(candidates, neutralCount, total)
+// Retire des candidates les humeurs neutres (ressenti neutre et énergie normale, comme 😐 Neutre) :
+// elles servent aux articles et aux réactions, mais ne peuvent pas résumer la journée d'une personne ou du salon
+function withoutNeutral(candidates)
 {
-	if (!candidates.neutre || neutralCount * 2 >= total)
-		return candidates;
-	const { neutre, ...others } = candidates;
-	return others;
+	return Object.fromEntries(Object.entries(candidates).filter(([, mood]) => mood.valence !== 0 || mood.energy !== 0));
 }
 
 // Calcule l'humeur d'une personne sur une journée à partir de ses articles.
@@ -117,7 +115,7 @@ export function analyzeDay(entries, moods = MOODS, candidates = moods)
 		energy = energy * (1 - weight) + text.energy * weight;
 	}
 
-	const ranking = rankMoods(valence, energy, withoutRareNeutral(candidates, moodCounts.neutre || 0, valid.length), moodCounts);
+	const ranking = rankMoods(valence, energy, withoutNeutral(candidates), moodCounts);
 	return {
 		valence,
 		energy,
@@ -152,7 +150,7 @@ export function analyzeRoomDay(entries, moods = MOODS, candidates = moods)
 	// Humeurs « votées » : celle retenue pour chaque membre
 	const votes = {};
 	members.forEach(member => votes[member.analysis.mood] = (votes[member.analysis.mood] || 0) + 1);
-	const ranking = rankMoods(valence, energy, withoutRareNeutral(candidates, votes.neutre || 0, members.length), votes);
+	const ranking = rankMoods(valence, energy, withoutNeutral(candidates), votes);
 
 	const keywords = new Set(members.flatMap(member => [...member.analysis.keywords]));
 	const count = members.reduce((sum, member) => sum + member.analysis.count, 0);
